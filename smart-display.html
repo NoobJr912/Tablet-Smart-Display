@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Smart display</title>
+<style>
+:root{--bg:#16303a;--ink:#ece6d8;--glow:#8fd3c8;--mute:rgba(236,230,216,.62);--card:rgba(255,255,255,.07);--line:rgba(236,230,216,.14)}
+body[data-phase=dawn]{--bg:#2a2236;--glow:#ff9d7a}
+body[data-phase=dusk]{--bg:#2b1f2a;--glow:#f2a35e}
+body[data-phase=night]{--bg:#0b1118;--glow:#b89968;--ink:#cfc8b8}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden;transition:background 3s;user-select:none}
+body::before{content:"";position:fixed;inset:auto -20% -45% -20%;height:90%;background:radial-gradient(closest-side,var(--glow),transparent);opacity:.22;transition:opacity 2s,background 3s;pointer-events:none}
+body.idle::before{opacity:.12}
+main{height:100%;display:flex;flex-direction:column;padding:max(4vmin,env(safe-area-inset-top)) 5vmin 4vmin;position:relative}
+.clock{font-family:"Iowan Old Style","Palatino Linotype",Georgia,serif;font-weight:300;font-variant-numeric:tabular-nums;letter-spacing:-.02em;line-height:1;font-size:11vmin;transition:font-size .8s,transform .8s;transform-origin:left top}
+.date{color:var(--mute);font-size:2.6vmin;margin-top:1vmin;transition:font-size .8s}
+body.idle main{justify-content:center;align-items:center;text-align:center}
+body.idle .clock{font-size:26vmin;transform-origin:center}
+body.idle .date{font-size:3.6vmin}
+body.idle .widgets,body.idle #gear{opacity:0;pointer-events:none}
+.widgets{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:2.5vmin;margin-top:4vmin;overflow:auto;transition:opacity .8s;align-content:start}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:2.4vmin;min-height:160px}
+.card h2{font-size:2.2vmin;font-weight:500;color:var(--mute);margin-bottom:1.4vmin}
+.big{font-family:"Iowan Old Style",Georgia,serif;font-size:8vmin;font-weight:300}
+.sub{color:var(--mute);font-size:2.3vmin;margin-top:.6vmin}
+button,input,select{font:inherit;color:inherit}
+button{background:transparent;border:1px solid var(--line);border-radius:999px;padding:.9vmin 2vmin;cursor:pointer}
+button.on{background:var(--glow);color:#10151a;border-color:var(--glow)}
+.row{display:flex;gap:1vmin;flex-wrap:wrap;margin-top:1.4vmin}
+.timer .big{font-size:10vmin}
+.timer.done .big{animation:pulse 1s 6}
+@keyframes pulse{50%{color:var(--glow)}}
+.tasks li{list-style:none;padding:1vmin 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:1vmin;font-size:2.5vmin}
+.tasks li.d span{text-decoration:line-through;color:var(--mute)}
+.tasks input{width:100%;background:transparent;border:0;border-bottom:1px solid var(--line);padding:1vmin 0;font-size:2.5vmin;margin-top:1vmin;outline:0}
+#gear{position:fixed;right:3vmin;top:max(3vmin,env(safe-area-inset-top));font-size:3vmin;padding:1vmin 1.6vmin;transition:opacity .8s}
+dialog{background:#1b242c;color:#ece6d8;border:1px solid var(--line);border-radius:18px;padding:3vmin;width:min(560px,92vw);max-height:90vh;overflow:auto}
+dialog::backdrop{background:rgba(0,0,0,.6)}
+dialog h3{font-weight:500;margin:2vmin 0 1vmin;font-size:1.05rem}
+dialog label{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:6px 0}
+dialog input[type=text],dialog input[type=number],dialog input[type=url]{background:#0f161c;border:1px solid var(--line);border-radius:8px;padding:8px;width:55%}
+dialog small{color:var(--mute);display:block;margin:4px 0}
+#msg{position:fixed;left:50%;bottom:2vmin;transform:translateX(-50%);color:var(--mute);font-size:2vmin}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body data-phase="day" class="idle">
+<main>
+  <div><div class="clock" id="clock">--:--</div><div class="date" id="date"></div></div>
+  <div class="widgets" id="widgets"></div>
+</main>
+<button id="gear" aria-label="Settings">Settings</button>
+<div id="msg"></div>
+<video id="cam" autoplay muted playsinline hidden></video>
+
+<dialog id="dlg">
+  <h3>Widgets</h3>
+  <div id="order"></div>
+  <h3>Presence</h3>
+  <label>Use camera to detect presence <input type="checkbox" id="cam-on"></label>
+  <label>Sensitivity <input type="range" id="sens" min="1" max="10"></label>
+  <label>Back to clock after (seconds) <input type="number" id="idle" min="10" max="900"></label>
+  <h3>Clock and weather</h3>
+  <label>24-hour clock <input type="checkbox" id="h24"></label>
+  <label>Latitude <input type="text" id="lat" inputmode="decimal"></label>
+  <label>Longitude <input type="text" id="lon" inputmode="decimal"></label>
+  <div class="row"><button id="geo">Use my location</button></div>
+  <h3>Light control</h3>
+  <small>Optional. Webhook URLs (for example from Home Assistant) that are called when someone arrives or leaves. The current time of day is sent with each call.</small>
+  <label>On arrival <input type="url" id="arrive" placeholder="https://..."></label>
+  <label>On leaving <input type="url" id="leave" placeholder="https://..."></label>
+  <div class="row"><button id="full">Full screen</button><button id="close">Done</button></div>
+</dialog>
+
+<script>
+const $=s=>document.querySelector(s);
+const NAMES={weather:'Weather',timer:'Timer and focus',tasks:'Tasks'};
+const DEF={order:['weather','timer','tasks'],on:{weather:1,timer:1,tasks:1},lat:'',lon:'',idle:45,sens:6,cam:1,h24:0,arrive:'',leave:'',tasks:[]};
+let S=Object.assign({},DEF);
+try{Object.assign(S,JSON.parse(localStorage.getItem('sd')||'{}'))}catch(e){}
+const save=()=>{try{localStorage.setItem('sd',JSON.stringify(S))}catch(e){}};
+const msg=t=>{$('#msg').textContent=t};
+
+/* clock and time-of-day palette */
+const phaseOf=h=>h<6?'night':h<9?'dawn':h<17?'day':h<21?'dusk':'night';
+function tick(){
+  const d=new Date();
+  $('#clock').textContent=d.toLocaleTimeString([],{hour:'numeric',minute:'2-digit',hour12:!S.h24});
+  $('#date').textContent=d.toLocaleDateString([],{weekday:'long',day:'numeric',month:'long'});
+  document.body.dataset.phase=phaseOf(d.getHours());
+}
+setInterval(tick,1000);tick();
+
+/* widgets */
+const W={};
+function weatherWidget(){
+  const el=document.createElement('div');el.className='card';
+  el.innerHTML='<h2>Weather</h2><div class="big">--</div><div class="sub"></div><div class="sub hl"></div>';
+  const wx=c=>c==0?'Clear':c<4?'Partly cloudy':c<50?'Fog':c<60?'Drizzle':c<70?'Rain':c<80?'Snow':c<90?'Showers':'Thunderstorm';
+  el.load=async()=>{
+    if(!S.lat||!S.lon){el.querySelector('.sub').textContent='Add your location in Settings.';return}
+    try{
+      const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${S.lat}&longitude=${S.lon}&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&timezone=auto`);
+      const j=await r.json();
+      el.querySelector('.big').textContent=Math.round(j.current.temperature_2m)+'°';
+      el.querySelector('.sub').textContent=wx(j.current.weather_code);
+      el.querySelector('.hl').textContent='High '+Math.round(j.daily.temperature_2m_max[0])+'°, low '+Math.round(j.daily.temperature_2m_min[0])+'°';
+    }catch(e){el.querySelector('.sub').textContent='Can’t reach the weather service.'}
+  };
+  el.load();setInterval(el.load,15*60*1000);
+  return el;
+}
+function timerWidget(){
+  const el=document.createElement('div');el.className='card timer';
+  el.innerHTML='<h2>Timer and focus</h2><div class="big">25:00</div><div class="sub">Focus</div><div class="row"><button data-m="25">Focus 25</button><button data-m="5">Break 5</button><button data-m="1">1 min</button><button data-m="10">10 min</button></div><div class="row"><button class="go on">Start</button><button class="rs">Reset</button></div>';
+  let left=1500,total=1500,end=0,run=false;
+  const big=el.querySelector('.big'),go=el.querySelector('.go'),lab=el.querySelector('.sub');
+  const show=()=>{big.textContent=String(Math.floor(left/60)).padStart(2,'0')+':'+String(left%60).padStart(2,'0')};
+  const beep=()=>{try{const a=new AudioContext(),o=a.createOscillator(),g=a.createGain();o.connect(g);g.connect(a.destination);o.frequency.value=660;g.gain.setValueAtTime(.2,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+1.2);o.start();o.stop(a.currentTime+1.2)}catch(e){}};
+  el.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{run=false;go.textContent='Start';total=left=b.dataset.m*60;lab.textContent=b.textContent;el.classList.remove('done');show()});
+  go.onclick=()=>{if(run){run=false;go.textContent='Resume';return}if(left<=0)left=total;end=Date.now()+left*1000;run=true;go.textContent='Pause';el.classList.remove('done')};
+  el.querySelector('.rs').onclick=()=>{run=false;left=total;go.textContent='Start';el.classList.remove('done');show()};
+  setInterval(()=>{if(!run)return;left=Math.max(0,Math.round((end-Date.now())/1000));show();if(left===0){run=false;go.textContent='Start';el.classList.add('done');beep();wake()}},250);
+  el.running=()=>run;
+  return el;
+}
+function tasksWidget(){
+  const el=document.createElement('div');el.className='card tasks';
+  el.innerHTML='<h2>Tasks</h2><ul></ul><input placeholder="Add a task and press Enter">';
+  const ul=el.querySelector('ul');
+  const draw=()=>{ul.innerHTML='';S.tasks.forEach((t,i)=>{const li=document.createElement('li');if(t.d)li.className='d';li.innerHTML='<span></span><button aria-label="Remove">×</button>';li.firstChild.textContent=t.t;li.firstChild.onclick=()=>{t.d=!t.d;save();draw()};li.lastChild.onclick=()=>{S.tasks.splice(i,1);save();draw()};ul.appendChild(li)})};
+  el.querySelector('input').onkeydown=e=>{if(e.key==='Enter'&&e.target.value.trim()){S.tasks.push({t:e.target.value.trim(),d:0});e.target.value='';save();draw()}};
+  draw();return el;
+}
+const MAKE={weather:weatherWidget,timer:timerWidget,tasks:tasksWidget};
+function layout(){
+  const box=$('#widgets');box.innerHTML='';
+  S.order.forEach(id=>{if(!S.on[id])return;W[id]=W[id]||MAKE[id]();box.appendChild(W[id])});
+}
+layout();
+
+/* presence */
+let active=false,last=0;
+function setActive(a){
+  if(a===active)return;
+  active=a;document.body.classList.toggle('idle',!a);
+  const url=a?S.arrive:S.leave;
+  if(url){fetch(url,{method:'POST',mode:'no-cors',body:JSON.stringify({event:a?'arrive':'leave',phase:document.body.dataset.phase})}).catch(()=>{})}
+}
+function wake(){last=Date.now();setActive(true)}
+document.addEventListener('pointerdown',()=>{wake();lockScreen()});
+setInterval(()=>{
+  const busy=W.timer&&W.timer.running&&W.timer.running();
+  if(active&&!busy&&!$('#dlg').open&&Date.now()-last>S.idle*1000)setActive(false);
+},1000);
+
+let stream=null,prev=null,loop=null;
+async function startCam(){
+  stopCam();
+  if(!S.cam)return;
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:160,height:120}});
+    const v=$('#cam');v.srcObject=stream;await v.play();
+    const c=document.createElement('canvas');c.width=40;c.height=30;const x=c.getContext('2d',{willReadFrequently:true});
+    loop=setInterval(()=>{
+      x.drawImage(v,0,0,40,30);
+      const d=x.getImageData(0,0,40,30).data,g=new Uint8Array(1200);
+      for(let i=0;i<1200;i++)g[i]=(d[i*4]+d[i*4+1]+d[i*4+2])/3;
+      if(prev){let n=0;for(let i=0;i<1200;i++)if(Math.abs(g[i]-prev[i])>25)n++;
+        if(n/1200>0.12-S.sens*0.01)wake()}
+      prev=g;
+    },500);
+    msg('');
+  }catch(e){msg('Camera unavailable. Tap the screen to wake the display.')}
+}
+function stopCam(){clearInterval(loop);prev=null;if(stream)stream.getTracks().forEach(t=>t.stop());stream=null}
+let lock=null;
+async function lockScreen(){try{if('wakeLock'in navigator&&!lock){lock=await navigator.wakeLock.request('screen');lock.onrelease=()=>lock=null}}catch(e){}}
+
+/* settings */
+function drawOrder(){
+  const o=$('#order');o.innerHTML='';
+  S.order.forEach((id,i)=>{
+    const r=document.createElement('label');
+    r.innerHTML='<span><input type="checkbox"> </span><span><button>↑</button> <button>↓</button></span>';
+    const cb=r.querySelector('input');cb.checked=!!S.on[id];
+    r.firstChild.append(NAMES[id]);
+    cb.onchange=()=>{S.on[id]=cb.checked?1:0;save();layout()};
+    const [up,dn]=r.querySelectorAll('button');
+    up.onclick=()=>{if(i){[S.order[i-1],S.order[i]]=[S.order[i],S.order[i-1]];save();layout();drawOrder()}};
+    dn.onclick=()=>{if(i<S.order.length-1){[S.order[i+1],S.order[i]]=[S.order[i],S.order[i+1]];save();layout();drawOrder()}};
+    o.appendChild(r);
+  });
+}
+$('#gear').onclick=()=>{
+  $('#cam-on').checked=!!S.cam;$('#sens').value=S.sens;$('#idle').value=S.idle;$('#h24').checked=!!S.h24;
+  $('#lat').value=S.lat;$('#lon').value=S.lon;$('#arrive').value=S.arrive;$('#leave').value=S.leave;
+  drawOrder();$('#dlg').showModal();
+};
+$('#geo').onclick=()=>navigator.geolocation.getCurrentPosition(p=>{$('#lat').value=p.coords.latitude.toFixed(3);$('#lon').value=p.coords.longitude.toFixed(3)},()=>msg('Location unavailable. Enter it by hand.'));
+$('#full').onclick=()=>document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen();
+$('#close').onclick=()=>{
+  S.cam=$('#cam-on').checked?1:0;S.sens=+$('#sens').value;S.idle=+$('#idle').value||45;S.h24=$('#h24').checked?1:0;
+  S.lat=$('#lat').value.trim();S.lon=$('#lon').value.trim();S.arrive=$('#arrive').value.trim();S.leave=$('#leave').value.trim();
+  save();$('#dlg').close();tick();if(W.weather)W.weather.load();startCam();last=Date.now();
+};
+startCam();
+</script>
+</body>
+</html>
