@@ -1,1 +1,0 @@
-# Tablet-Smart-Display
