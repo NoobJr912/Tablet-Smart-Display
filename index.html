@@ -128,6 +128,32 @@ body.idle .widgets{flex:none}
 .add input[type=date]{flex:0 0 auto;color-scheme:dark;color:var(--mute)}
 .hint{text-align:center;color:var(--faint);font-size:1.9vmin;margin-top:1.2vmin}
 .tin{width:70%;background:rgba(0,0,0,.35);border:0;border-radius:12px;padding:1vmin;text-align:center;font-size:5vmin;font-weight:200;outline:0;pointer-events:auto;color:#fff}
+
+/* size by card width (container units) so nothing spills out of a card */
+.card{container-type:inline-size}
+.timer .row{display:grid;gap:clamp(6px,2cqw,10px);margin-top:clamp(8px,3cqw,14px)}
+.timer .r3{grid-template-columns:repeat(3,1fr)}
+.timer .r2,.timer .q{grid-template-columns:repeat(2,1fr)}
+@container (min-width:400px){.timer .q{grid-template-columns:repeat(4,1fr)}}
+.timer button{min-width:0;padding:clamp(7px,2.2cqw,12px) 4px;font-size:clamp(12px,3.9cqw,17px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ringwrap{width:max(140px,min(60cqw,270px,42vmin))}
+.timer .big{font-size:clamp(26px,min(11cqw,7vmin),48px)}
+.timer .mid .sub{font-size:clamp(11px,3.4cqw,15px)}
+.hint{font-size:clamp(10px,3cqw,13px)}
+.clk svg{width:min(52cqw,30vmin,240px)}
+.clk .dig{font-size:clamp(22px,9cqw,40px)}
+.clk .sub{font-size:clamp(12px,4cqw,17px)}
+.stack .clk svg{width:clamp(72px,26cqw,120px);min-width:0}
+.stack .clk .txt{flex:1;min-width:0}
+.stack .clk .dig{font-size:clamp(26px,11cqw,52px)}
+.stack .clk .sub{font-size:clamp(11px,4cqw,17px)}
+.stack .wx .big{font-size:clamp(30px,13cqw,60px)}
+.stack .wx .wxrow .ic svg{width:clamp(48px,17cqw,80px);height:clamp(48px,17cqw,80px);min-width:0;min-height:0}
+.stack .wx .sub{font-size:clamp(11px,4cqw,17px);min-width:0}
+/* homework and tasks cards never grow past the screen; the list scrolls inside */
+.list{display:flex;flex-direction:column;max-height:calc(100dvh - 21vmin)}
+.list h2,.list .add,.list .err{flex:none}
+.list .lists{flex:1 1 auto;min-height:0;max-height:min(44vmin,360px)}
 </style>
 </head>
 <body data-phase="day" class="idle">
@@ -229,7 +255,7 @@ function clockWidget(){
   let t='',n='';
   for(let i=0;i<60;i++){const a=i*6*Math.PI/180,r1=i%5?93:87,r2=97,s=Math.sin(a),c=Math.cos(a);t+=`<line x1="${100+r1*s}" y1="${100-r1*c}" x2="${100+r2*s}" y2="${100-r2*c}" stroke="${i%5?'rgba(255,255,255,.35)':'#fff'}" stroke-width="${i%5?1:2.2}" stroke-linecap="round"/>`}
   for(let i=1;i<=12;i++){const a=i*30*Math.PI/180;n+=`<text x="${100+68*Math.sin(a)}" y="${100-68*Math.cos(a)+7}" text-anchor="middle" font-size="20" font-weight="500" fill="#fff" style="font-family:var(--font)">${i}</text>`}
-  el.innerHTML=`<svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="99" fill="rgba(8,8,12,.55)"/>${t}${n}<line class="hh" x1="100" y1="100" x2="100" y2="58" stroke="#fff" stroke-width="6" stroke-linecap="round"/><line class="mm" x1="100" y1="100" x2="100" y2="36" stroke="#fff" stroke-width="4.5" stroke-linecap="round"/><line class="ss" x1="100" y1="116" x2="100" y2="30" stroke="#ff9f0a" stroke-width="2" stroke-linecap="round"/><circle cx="100" cy="100" r="5" fill="#ff9f0a"/></svg><div class="dig"></div><div class="sub"></div>`;
+  el.innerHTML=`<svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="99" fill="rgba(8,8,12,.55)"/>${t}${n}<line class="hh" x1="100" y1="100" x2="100" y2="58" stroke="#fff" stroke-width="6" stroke-linecap="round"/><line class="mm" x1="100" y1="100" x2="100" y2="36" stroke="#fff" stroke-width="4.5" stroke-linecap="round"/><line class="ss" x1="100" y1="116" x2="100" y2="30" stroke="#ff9f0a" stroke-width="2" stroke-linecap="round"/><circle cx="100" cy="100" r="5" fill="#ff9f0a"/></svg><div class="txt"><div class="dig"></div><div class="sub"></div></div>`;
   const $$=s=>el.querySelector(s);
   const up=()=>{const d=new Date(),m=d.getMinutes(),s=d.getSeconds();
     $$('.hh').setAttribute('transform',`rotate(${(d.getHours()%12+m/60)*30} 100 100)`);
@@ -276,7 +302,7 @@ function weatherWidget(){
 /* timer with draggable ring */
 function timerWidget(){
   const el=document.createElement('div');el.className='card timer';
-  el.innerHTML='<h2>Timer</h2><div class="ringwrap"><svg viewBox="0 0 220 220"><circle cx="110" cy="110" r="92" fill="none" stroke="rgba(255,255,255,.16)" stroke-width="14"/><circle class="pg" cx="110" cy="110" r="92" fill="none" stroke="#ff9f0a" stroke-width="14" stroke-linecap="round" transform="rotate(-90 110 110)"/><circle class="kn" r="13" fill="#fff" style="filter:drop-shadow(0 2px 6px rgba(0,0,0,.45))"/></svg><div class="mid"><div class="big">25:00</div><div class="sub">Focus</div></div></div><div class="hint">Drag the ring for minutes, or inside it for seconds</div><div class="row"><button data-d="-10">−10s</button><button class="ty">Type time</button><button data-d="10">+10s</button></div><div class="row"><button data-m="25">Focus 25</button><button data-m="5">Break 5</button><button data-m="1">1 min</button><button data-m="10">10 min</button></div><div class="row"><button class="go on">Start</button><button class="rs">Reset</button></div>';
+  el.innerHTML='<h2>Timer</h2><div class="ringwrap"><svg viewBox="0 0 220 220"><circle cx="110" cy="110" r="92" fill="none" stroke="rgba(255,255,255,.16)" stroke-width="14"/><circle class="pg" cx="110" cy="110" r="92" fill="none" stroke="#ff9f0a" stroke-width="14" stroke-linecap="round" transform="rotate(-90 110 110)"/><circle class="kn" r="13" fill="#fff" style="filter:drop-shadow(0 2px 6px rgba(0,0,0,.45))"/></svg><div class="mid"><div class="big">25:00</div><div class="sub">Focus</div></div></div><div class="hint">Drag the ring for minutes, or inside it for seconds</div><div class="row r3"><button data-d="-10">−10s</button><button class="ty">Type time</button><button data-d="10">+10s</button></div><div class="row q"><button data-m="25">Focus 25</button><button data-m="5">Break 5</button><button data-m="1">1 min</button><button data-m="10">10 min</button></div><div class="row r2"><button class="go on">Start</button><button class="rs">Reset</button></div>';
   let left=1500,total=1500,end=0,run=false,lm=25;
   const big=el.querySelector('.big'),go=el.querySelector('.go'),lab=el.querySelector('.mid .sub'),pg=el.querySelector('.pg'),kn=el.querySelector('.kn'),sv=el.querySelector('svg');
   const C=2*Math.PI*92;
