@@ -5,62 +5,70 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Smart display</title>
 <style>
-:root{--bg:#0f3d5e;--a:#3ec1d3;--b:#7b8cff;--c:#ffd27a;--ink:#fff;--mute:rgba(255,255,255,.68);--line:rgba(255,255,255,.26)}
-body[data-phase=dawn]{--bg:#3a1f4d;--a:#ff8fa3;--b:#ffb36b;--c:#6c7bff}
-body[data-phase=dusk]{--bg:#2a1a3a;--a:#ff7a59;--b:#c04cfd;--c:#4a6cff}
-body[data-phase=night]{--bg:#070b14;--a:#2b3a67;--b:#5b3b8c;--c:#1f6f78;--ink:#e8e8ee}
+:root{--g1:#4aa8ff;--g2:#7b6cff;--g3:#ff7ab8;--ink:#f5f5f7;--mute:rgba(245,245,247,.6);--line:rgba(255,255,255,.1);--card:rgba(255,255,255,.07)}
+body[data-phase=dawn]{--g1:#ff9a6b;--g2:#ff6fa5;--g3:#8c7bff}
+body[data-phase=day]{--g1:#4aa8ff;--g2:#5be0c8;--g3:#7b6cff}
+body[data-phase=dusk]{--g1:#ff7a59;--g2:#c04cfd;--g3:#4a6cff}
+body[data-phase=night]{--g1:#3a4fa0;--g2:#5b3b8c;--g3:#1f6f78}
 *{box-sizing:border-box;margin:0}
-html,body{height:100%}
-body{color:var(--ink);font-family:system-ui,-apple-system,"SF Pro Display","Segoe UI",Roboto,sans-serif;overflow:hidden;user-select:none;
-  background:radial-gradient(55vmax 55vmax at 12% 18%,var(--a),transparent 62%),radial-gradient(60vmax 60vmax at 88% 28%,var(--b),transparent 60%),radial-gradient(70vmax 50vmax at 50% 112%,var(--c),transparent 65%),var(--bg)}
-body.idle{filter:saturate(.8) brightness(.85)}
-main{height:100%;display:flex;flex-direction:column;padding:max(4vmin,env(safe-area-inset-top)) 5vmin 4vmin}
-.clock{font-weight:200;font-variant-numeric:tabular-nums;letter-spacing:-.03em;line-height:1;font-size:12vmin;transition:font-size .8s;text-shadow:0 2px 30px rgba(0,0,0,.18)}
-.date{color:var(--mute);font-size:2.6vmin;margin-top:1vmin;font-weight:400;transition:font-size .8s}
+html,body{height:100%;background:#000}
+body{color:var(--ink);font-family:-apple-system,"SF Pro Display",system-ui,"Segoe UI",Roboto,sans-serif;overflow:hidden;user-select:none;-webkit-font-smoothing:antialiased}
+/* HomePod-style glow */
+.glow{position:fixed;left:50%;top:-18vmax;width:90vmax;height:70vmax;transform:translateX(-50%);pointer-events:none;filter:blur(70px);opacity:.55;transition:opacity 1s,top 1s,background 2s;
+  background:radial-gradient(40% 50% at 30% 55%,var(--g1),transparent 70%),radial-gradient(40% 50% at 55% 40%,var(--g2),transparent 70%),radial-gradient(40% 50% at 75% 60%,var(--g3),transparent 70%);animation:drift 24s ease-in-out infinite alternate}
+@keyframes drift{to{transform:translateX(-46%) scale(1.08) rotate(4deg)}}
+body.idle .glow{top:50%;margin-top:-35vmax;opacity:.4}
+main{position:relative;height:100%;display:flex;flex-direction:column;padding:max(5vmin,env(safe-area-inset-top)) 5vmin 4vmin}
+.clock{font-weight:200;font-variant-numeric:tabular-nums;letter-spacing:-.04em;line-height:1;font-size:13vmin;transition:font-size .8s}
+.date{color:var(--mute);font-size:2.6vmin;margin-top:1.2vmin;font-weight:500;transition:font-size .8s}
 body.idle main{justify-content:center;align-items:center;text-align:center}
-body.idle .clock{font-size:28vmin}
-body.idle .date{font-size:3.8vmin}
+body.idle .clock{font-size:30vmin}
+body.idle .date{font-size:4vmin}
 body.idle .widgets,body.idle #gear{opacity:0;pointer-events:none}
-.widgets{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:2.5vmin;margin-top:4vmin;overflow:auto;align-content:start;transition:opacity .8s;padding:4px}
-.glass,.card,dialog,button,input,select,textarea{-webkit-backdrop-filter:blur(26px) saturate(180%);backdrop-filter:blur(26px) saturate(180%)}
-.card,dialog{background:linear-gradient(135deg,rgba(255,255,255,.26),rgba(255,255,255,.07) 55%,rgba(255,255,255,.14));border:1px solid var(--line);box-shadow:inset 0 1.5px 0 rgba(255,255,255,.55),inset 0 -1px 0 rgba(255,255,255,.1),inset 1px 0 0 rgba(255,255,255,.18),0 22px 50px rgba(0,0,0,.28)}
-.card{border-radius:34px;padding:2.6vmin;min-height:160px}
-.card h2{font-size:2.2vmin;font-weight:600;color:var(--mute);margin-bottom:1.4vmin}
-.card h3{font-size:2vmin;font-weight:600;margin:1.6vmin 0 .4vmin;color:var(--mute)}
-.big{font-size:9vmin;font-weight:200;letter-spacing:-.02em}
+.widgets{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:2.4vmin;margin-top:4vmin;overflow:auto;align-content:start;transition:opacity .8s;padding:2px}
+.card,dialog{-webkit-backdrop-filter:blur(40px) saturate(160%);backdrop-filter:blur(40px) saturate(160%)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:30px;padding:2.6vmin;min-height:160px}
+.card h2{font-size:1.9vmin;font-weight:600;color:var(--mute);margin-bottom:1.6vmin;letter-spacing:.04em;text-transform:uppercase}
+.card h3{font-size:1.9vmin;font-weight:600;margin:1.6vmin 0 .4vmin;color:var(--mute)}
+.big{font-size:9vmin;font-weight:200;letter-spacing:-.03em}
 .sub{color:var(--mute);font-size:2.3vmin;margin-top:.6vmin}
 button,input,select,textarea{font:inherit;color:inherit}
-button{background:linear-gradient(180deg,rgba(255,255,255,.32),rgba(255,255,255,.1));border:1px solid var(--line);border-radius:999px;padding:1vmin 2.2vmin;cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,.55),0 6px 16px rgba(0,0,0,.18)}
-button:active{transform:scale(.97)}
-button.on{background:linear-gradient(180deg,rgba(255,255,255,.9),rgba(255,255,255,.6));color:#12202b;font-weight:600}
+button{background:rgba(255,255,255,.12);border:0;border-radius:999px;padding:1vmin 2.2vmin;cursor:pointer;transition:transform .15s,background .2s}
+button:active{transform:scale(.96)}
+button.on{background:#f5f5f7;color:#000;font-weight:600}
 .row{display:flex;gap:1vmin;flex-wrap:wrap;margin-top:1.4vmin}
 .timer .big{font-size:11vmin}
 .timer.done .big{animation:pulse 1s 6}
-@keyframes pulse{50%{opacity:.35}}
-.tasks ul{padding:0}
-.tasks li{list-style:none;padding:1.1vmin 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:1vmin;font-size:2.6vmin}
-.tasks li.d span{text-decoration:line-through;color:var(--mute)}
-.tasks li span::before{content:"○ ";color:var(--mute)}
-.tasks li.d span::before{content:"● "}
-.tasks li button{padding:0 1.4vmin;box-shadow:none}
+@keyframes pulse{50%{opacity:.3}}
+.list ul{padding:0}
+.list li{list-style:none;padding:1.2vmin 0;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:1.4vmin;font-size:2.5vmin}
+.list li:last-child{border:0}
+.list li .dot{flex:none;width:2.8vmin;height:2.8vmin;min-width:20px;min-height:20px;border-radius:50%;border:1.5px solid var(--mute)}
+.list li.d .dot{background:var(--ink);border-color:var(--ink);box-shadow:inset 0 0 0 .5vmin #1c1c1e}
+.list li .t{flex:1;min-width:0}
+.list li.d .t{color:var(--mute);text-decoration:line-through}
+.list li .due{flex:none;font-size:1.9vmin;color:var(--mute)}
+.list li .due.late{color:#ff8a80}
+.list li button{padding:0 1.4vmin;background:none;color:var(--mute)}
 .add{display:flex;gap:1vmin;margin-top:1.6vmin}
-.add input,.add select{flex:1;background:rgba(255,255,255,.14);border:1px solid var(--line);border-radius:999px;padding:1.2vmin 2vmin;font-size:2.5vmin;outline:0}
+.add input,.add select{flex:1;background:rgba(255,255,255,.08);border:0;border-radius:999px;padding:1.2vmin 2vmin;font-size:2.3vmin;outline:0}
 .add select{flex:0 0 36%}
 .add select option{color:#111}
-.err{color:#ffd1d1;font-size:2vmin;margin-top:1vmin}
-#gear{position:fixed;right:3vmin;top:max(3vmin,env(safe-area-inset-top));font-size:2.6vmin;transition:opacity .8s}
-dialog{border-radius:32px;padding:3vmin;width:min(580px,93vw);max-height:92vh;overflow:auto;color:#fff;background:linear-gradient(135deg,rgba(40,50,70,.75),rgba(20,28,44,.8))}
-dialog::backdrop{background:rgba(0,0,0,.55)}
+.err{color:#ffb3ad;font-size:2vmin;margin-top:1vmin}
+#gear{position:fixed;right:3vmin;top:max(3vmin,env(safe-area-inset-top));font-size:2.2vmin;transition:opacity .8s;background:rgba(255,255,255,.08);color:var(--mute)}
+dialog{border:1px solid var(--line);border-radius:30px;padding:3vmin;width:min(580px,93vw);max-height:92vh;overflow:auto;color:#f5f5f7;background:rgba(28,28,30,.82)}
+dialog::backdrop{background:rgba(0,0,0,.6)}
 dialog h3{font-weight:600;margin:2.4vmin 0 1vmin;font-size:1.05rem}
 dialog label{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:6px 0}
-dialog input[type=text],dialog input[type=number],dialog input[type=url],dialog input[type=password],dialog textarea{background:rgba(255,255,255,.1);border:1px solid var(--line);border-radius:14px;padding:9px 12px;width:58%;outline:0}
-dialog textarea{width:100%;height:80px;resize:vertical;display:block}
+dialog input[type=text],dialog input[type=number],dialog input[type=url],dialog input[type=password],dialog textarea{background:rgba(255,255,255,.08);border:0;border-radius:14px;padding:9px 12px;width:58%;outline:0}
+dialog textarea{width:100%;height:70px;resize:vertical;display:block}
 dialog small{color:var(--mute);display:block;margin:4px 0}
 #msg{position:fixed;left:50%;bottom:2vmin;transform:translateX(-50%);color:var(--mute);font-size:2vmin}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
 <body data-phase="day" class="idle">
+<div class="glow"></div>
 <main>
   <div><div class="clock" id="clock">--:--</div><div class="date" id="date"></div></div>
   <div class="widgets" id="widgets"></div>
@@ -72,12 +80,14 @@ dialog small{color:var(--mute);display:block;margin:4px 0}
 <dialog id="dlg">
   <h3>Widgets</h3>
   <div id="order"></div>
-  <h3>Notion tasks</h3>
+  <h3>Notion</h3>
   <small>Needs a proxy, because Notion blocks direct requests from web pages (see notion-proxy.js). Share each database with your Notion integration first. The token is saved only on this device.</small>
   <label>Proxy URL <input type="url" id="proxy" placeholder="https://...workers.dev"></label>
   <label>Integration token <input type="password" id="token" placeholder="secret_..."></label>
-  <small>Database IDs or links, one per line</small>
+  <small>Tasks databases: IDs or links, one per line</small>
   <textarea id="dbs"></textarea>
+  <small>Homework databases: IDs or links, one per line. If the database has a date property, it shows as the due date.</small>
+  <textarea id="hw"></textarea>
   <h3>Presence</h3>
   <label>Use camera to detect presence <input type="checkbox" id="cam-on"></label>
   <label>Sensitivity <input type="range" id="sens" min="1" max="10"></label>
@@ -96,14 +106,19 @@ dialog small{color:var(--mute);display:block;margin:4px 0}
 
 <script>
 const $=s=>document.querySelector(s);
-const NAMES={weather:'Weather',timer:'Timer and focus',tasks:'Tasks'};
-const DEF={order:['weather','timer','tasks'],on:{weather:1,timer:1,tasks:1},lat:'',lon:'',idle:45,sens:6,cam:1,h24:0,arrive:'',leave:'',tasks:[],proxy:'',token:'',dbs:''};
+const NAMES={weather:'Weather',timer:'Timer and focus',tasks:'Tasks',homework:'Homework'};
+const DEF={order:['weather','timer','tasks','homework'],on:{weather:1,timer:1,tasks:1,homework:1},lat:'',lon:'',idle:45,sens:6,cam:1,h24:0,arrive:'',leave:'',loc:{tasks:[],homework:[]},proxy:'',token:'',dbs:'',hw:''};
 let S=Object.assign({},DEF);
 try{Object.assign(S,JSON.parse(localStorage.getItem('sd')||'{}'))}catch(e){}
+/* migrate older saved settings */
+if(Array.isArray(S.tasks)){S.loc=Object.assign({tasks:[],homework:[]},S.loc,{tasks:S.tasks});delete S.tasks}
+S.loc=Object.assign({tasks:[],homework:[]},S.loc);
+S.on=Object.assign({},DEF.on,S.on);
+DEF.order.forEach(id=>{if(!S.order.includes(id))S.order.push(id)});
 const save=()=>{try{localStorage.setItem('sd',JSON.stringify(S))}catch(e){}};
 const msg=t=>{$('#msg').textContent=t};
 
-/* clock and time-of-day palette */
+/* clock and time-of-day glow */
 const phaseOf=h=>h<6?'night':h<9?'dawn':h<17?'day':h<21?'dusk':'night';
 function tick(){
   const d=new Date();
@@ -147,32 +162,44 @@ function timerWidget(){
   return el;
 }
 
-/* tasks: local list, or two-way sync with one or more Notion databases */
-function tasksWidget(){
-  const el=document.createElement('div');el.className='card tasks';
-  el.innerHTML='<h2>Tasks</h2><div class="lists"></div><div class="err"></div><div class="add"><select hidden></select><input placeholder="Add a task and press Enter"></div>';
+/* Notion list widget: used for both Tasks and Homework, each with its own databases */
+function listWidget(key,title,dbKey,dated){
+  const el=document.createElement('div');el.className='card list';
+  el.innerHTML='<h2></h2><div class="lists"></div><div class="err"></div><div class="add"><select hidden></select><input></div>';
+  el.querySelector('h2').textContent=title;
   const lists=el.querySelector('.lists'),sel=el.querySelector('select'),inp=el.querySelector('input'),eb=el.querySelector('.err');
+  inp.placeholder='Add '+(dated?'homework':'a task')+' and press Enter';
   let DB=[],err='';
-  const ids=()=>[...new Set((S.dbs||'').split(/[\s,]+/).map(x=>x.replace(/-/g,'').match(/[0-9a-f]{32}/i)).filter(Boolean).map(m=>m[0].toLowerCase()))];
+  const ids=()=>[...new Set((S[dbKey]||'').split(/[\s,]+/).map(x=>x.replace(/-/g,'').match(/[0-9a-f]{32}/i)).filter(Boolean).map(m=>m[0].toLowerCase()))];
   const cfg=()=>S.token&&S.proxy&&ids().length;
   const nf=async(p,m='GET',b)=>{
     const r=await fetch(S.proxy.replace(/\/+$/,'')+p,{method:m,headers:{Authorization:'Bearer '+S.token,'Content-Type':'application/json'},body:b?JSON.stringify(b):undefined});
     const j=await r.json();if(!r.ok)throw new Error(j.message||('Error '+r.status));return j;
   };
-  const row=(it,fn)=>{const li=document.createElement('li');if(it.d)li.className='d';li.innerHTML='<span></span>';li.firstChild.textContent=it.t;li.firstChild.onclick=fn;return li};
+  const fmt=s=>{const d=new Date(s.length>10?s:s+'T00:00'),t=new Date();t.setHours(0,0,0,0);const n=Math.round((d-t)/864e5);
+    return n===0?'Today':n===1?'Tomorrow':n===-1?'Yesterday':d.toLocaleDateString([],{weekday:'short',day:'numeric',month:'short'})};
+  const late=s=>new Date(s.length>10?s:s+'T23:59')<new Date();
+  const row=(it,fn)=>{
+    const li=document.createElement('li');if(it.d)li.className='d';
+    li.innerHTML='<span class="dot"></span><span class="t"></span>';
+    li.querySelector('.t').textContent=it.t;
+    if(it.due){const s=document.createElement('span');s.className='due'+(!it.d&&late(it.due)?' late':'');s.textContent=fmt(it.due);li.appendChild(s)}
+    li.querySelector('.dot').onclick=li.querySelector('.t').onclick=fn;
+    return li;
+  };
   function draw(){
     lists.innerHTML='';eb.textContent=err;sel.hidden=true;
     if(!cfg()){
-      const ul=document.createElement('ul');
-      S.tasks.forEach((t,i)=>{const li=row(t,()=>{t.d=!t.d;save();draw()});const x=document.createElement('button');x.textContent='×';x.setAttribute('aria-label','Remove');x.onclick=()=>{S.tasks.splice(i,1);save();draw()};li.appendChild(x);ul.appendChild(li)});
+      const loc=S.loc[key],ul=document.createElement('ul');
+      loc.forEach((t,i)=>{const li=row(t,()=>{t.d=!t.d;save();draw()});const x=document.createElement('button');x.textContent='×';x.setAttribute('aria-label','Remove');x.onclick=()=>{loc.splice(i,1);save();draw()};li.appendChild(x);ul.appendChild(li)});
       lists.appendChild(ul);
-      if(!S.tasks.length)lists.insertAdjacentHTML('afterbegin','<div class="sub">Add a Notion token, proxy and database in Settings to sync. Until then this is a local list.</div>');
+      if(!loc.length)lists.insertAdjacentHTML('afterbegin','<div class="sub">Add a Notion token, proxy and database in Settings to sync. Until then this is a local list.</div>');
       return;
     }
     DB.forEach(db=>{
       if(DB.length>1){const h=document.createElement('h3');h.textContent=db.title;lists.appendChild(h)}
       const ul=document.createElement('ul');
-      db.items.slice().sort((a,b)=>a.d-b.d).slice(0,6).forEach(it=>ul.appendChild(row(it,()=>toggle(db,it))));
+      db.items.slice().sort((a,b)=>(a.d-b.d)||((a.due||'9')<(b.due||'9')?-1:1)).slice(0,6).forEach(it=>ul.appendChild(row(it,()=>toggle(db,it))));
       if(!db.items.length){const s=document.createElement('div');s.className='sub';s.textContent='Nothing here yet.';ul.appendChild(s)}
       lists.appendChild(ul);
     });
@@ -183,13 +210,13 @@ function tasksWidget(){
     try{
       DB=await Promise.all(ids().map(async id=>{
         const m=await nf('/v1/databases/'+id),pr=Object.entries(m.properties);
-        const tp=pr.find(([k,v])=>v.type==='title')[0],cb=pr.find(([k,v])=>v.type==='checkbox'),st=pr.find(([k,v])=>v.type==='status');
+        const tp=pr.find(([k,v])=>v.type==='title')[0],cb=pr.find(([k,v])=>v.type==='checkbox'),st=pr.find(([k,v])=>v.type==='status'),dt=pr.find(([k,v])=>v.type==='date');
         let kind='none',cp,doneIds=[],done,todo;
         if(cb){kind='cb';cp=cb[0]}
         else if(st){kind='st';cp=st[0];const s=st[1].status,g=s.groups.find(g=>/complete/i.test(g.name)),t=s.groups.find(g=>/to-?do/i.test(g.name));
           doneIds=g?g.option_ids:[];done=s.options.find(o=>doneIds.includes(o.id));todo=s.options.find(o=>t&&t.option_ids.includes(o.id))||s.options.find(o=>!doneIds.includes(o.id))}
-        const q=await nf('/v1/databases/'+id+'/query','POST',{page_size:40,sorts:[{timestamp:'created_time',direction:'descending'}]});
-        const items=q.results.map(p=>{const pp=p.properties;return{id:p.id,t:pp[tp].title.map(x=>x.plain_text).join('')||'Untitled',d:kind==='cb'?!!pp[cp].checkbox:kind==='st'?!!(pp[cp].status&&doneIds.includes(pp[cp].status.id)):false}});
+        const q=await nf('/v1/databases/'+id+'/query','POST',{page_size:50,sorts:[{timestamp:'created_time',direction:'descending'}]});
+        const items=q.results.map(p=>{const pp=p.properties;return{id:p.id,t:pp[tp].title.map(x=>x.plain_text).join('')||'Untitled',due:dt&&pp[dt[0]].date?pp[dt[0]].date.start:'',d:kind==='cb'?!!pp[cp].checkbox:kind==='st'?!!(pp[cp].status&&doneIds.includes(pp[cp].status.id)):false}});
         return{id,title:m.title.map(x=>x.plain_text).join('')||'Database',tp,kind,cp,done,todo,items};
       }));
       err='';
@@ -207,17 +234,17 @@ function tasksWidget(){
   inp.onkeydown=async e=>{
     if(e.key!=='Enter'||!inp.value.trim())return;
     const t=inp.value.trim();inp.value='';
-    if(!cfg()){S.tasks.push({t,d:0});save();draw();return}
+    if(!cfg()){S.loc[key].push({t,d:0});save();draw();return}
     const db=DB[sel.hidden?0:+sel.value];if(!db)return;
     try{await nf('/v1/pages','POST',{parent:{database_id:db.id},properties:{[db.tp]:{title:[{text:{content:t}}]}}});await load()}catch(x){err=x.message;draw()}
   };
   el.load=load;load();setInterval(load,120000);
   return el;
 }
-const MAKE={weather:weatherWidget,timer:timerWidget,tasks:tasksWidget};
+const MAKE={weather:weatherWidget,timer:timerWidget,tasks:()=>listWidget('tasks','Tasks','dbs',false),homework:()=>listWidget('homework','Homework','hw',true)};
 function layout(){
   const box=$('#widgets');box.innerHTML='';
-  S.order.forEach(id=>{if(!S.on[id])return;W[id]=W[id]||MAKE[id]();box.appendChild(W[id])});
+  S.order.forEach(id=>{if(!S.on[id]||!MAKE[id])return;W[id]=W[id]||MAKE[id]();box.appendChild(W[id])});
 }
 layout();
 
@@ -277,7 +304,7 @@ function drawOrder(){
 $('#gear').onclick=()=>{
   $('#cam-on').checked=!!S.cam;$('#sens').value=S.sens;$('#idle').value=S.idle;$('#h24').checked=!!S.h24;
   $('#lat').value=S.lat;$('#lon').value=S.lon;$('#arrive').value=S.arrive;$('#leave').value=S.leave;
-  $('#proxy').value=S.proxy;$('#token').value=S.token;$('#dbs').value=S.dbs;
+  $('#proxy').value=S.proxy;$('#token').value=S.token;$('#dbs').value=S.dbs;$('#hw').value=S.hw;
   drawOrder();$('#dlg').showModal();
 };
 $('#geo').onclick=()=>navigator.geolocation.getCurrentPosition(p=>{$('#lat').value=p.coords.latitude.toFixed(3);$('#lon').value=p.coords.longitude.toFixed(3)},()=>msg('Location unavailable. Enter it by hand.'));
@@ -285,8 +312,10 @@ $('#full').onclick=()=>document.documentElement.requestFullscreen&&document.docu
 $('#close').onclick=()=>{
   S.cam=$('#cam-on').checked?1:0;S.sens=+$('#sens').value;S.idle=+$('#idle').value||45;S.h24=$('#h24').checked?1:0;
   S.lat=$('#lat').value.trim();S.lon=$('#lon').value.trim();S.arrive=$('#arrive').value.trim();S.leave=$('#leave').value.trim();
-  S.proxy=$('#proxy').value.trim();S.token=$('#token').value.trim();S.dbs=$('#dbs').value;
-  save();$('#dlg').close();tick();if(W.weather)W.weather.load();if(W.tasks)W.tasks.load();startCam();last=Date.now();
+  S.proxy=$('#proxy').value.trim();S.token=$('#token').value.trim();S.dbs=$('#dbs').value;S.hw=$('#hw').value;
+  save();$('#dlg').close();tick();
+  ['weather','tasks','homework'].forEach(k=>W[k]&&W[k].load());
+  startCam();last=Date.now();
 };
 startCam();
 </script>
