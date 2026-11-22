@@ -25,7 +25,7 @@ body.idle main{justify-content:center;align-items:center;text-align:center}
 body.idle .clock{font-size:32vmin}
 body.idle .date{font-size:4.2vmin;margin-top:2.4vmin}
 body.idle .widgets,body.idle #gear{opacity:0;pointer-events:none}
-.widgets{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:2.4vmin;margin-top:5vmin;overflow:auto;align-content:start;transition:opacity .8s;padding:2px;scrollbar-width:none}
+.widgets{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:2.4vmin;margin-top:5vmin;overflow:auto;align-content:start;transition:opacity .8s;padding:2px;scrollbar-width:none}
 .widgets::-webkit-scrollbar{display:none}
 .card,dialog{-webkit-backdrop-filter:blur(50px) saturate(170%);backdrop-filter:blur(50px) saturate(170%)}
 .card{background:var(--card);box-shadow:inset 0 0 0 1px rgba(255,255,255,.07);border-radius:28px;padding:3vmin;min-height:170px}
@@ -116,6 +116,18 @@ body:not(.idle) main{padding-top:max(12vmin,calc(env(safe-area-inset-top) + 9vmi
 .stack .wx .big{font-size:7vmin}
 .stack .wx .sub{margin-top:0;font-size:2.2vmin;grid-column:2}
 .stack .wx .hl{grid-column:2}
+
+/* responsive layout, scrolling lists, date picker, timer extras */
+main{height:100dvh}
+.widgets{flex:1;min-height:0;overscroll-behavior:contain;padding-bottom:3vmin;-webkit-overflow-scrolling:touch}
+body.idle .widgets{flex:none}
+@media (orientation:portrait){body.idle .clock{font-size:28vmin}}
+.list .lists{max-height:36vmin;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.28) transparent;-webkit-overflow-scrolling:touch}
+.add{flex-wrap:wrap}
+.add .ti{flex:1 1 40%}
+.add input[type=date]{flex:0 0 auto;color-scheme:dark;color:var(--mute)}
+.hint{text-align:center;color:var(--faint);font-size:1.9vmin;margin-top:1.2vmin}
+.tin{width:70%;background:rgba(0,0,0,.35);border:0;border-radius:12px;padding:1vmin;text-align:center;font-size:5vmin;font-weight:200;outline:0;pointer-events:auto;color:#fff}
 </style>
 </head>
 <body data-phase="day" class="idle">
@@ -264,7 +276,7 @@ function weatherWidget(){
 /* timer with draggable ring */
 function timerWidget(){
   const el=document.createElement('div');el.className='card timer';
-  el.innerHTML='<h2>Timer</h2><div class="ringwrap"><svg viewBox="0 0 220 220"><circle cx="110" cy="110" r="92" fill="none" stroke="rgba(255,255,255,.16)" stroke-width="14"/><circle class="pg" cx="110" cy="110" r="92" fill="none" stroke="#ff9f0a" stroke-width="14" stroke-linecap="round" transform="rotate(-90 110 110)"/><circle class="kn" r="13" fill="#fff" style="filter:drop-shadow(0 2px 6px rgba(0,0,0,.45))"/></svg><div class="mid"><div class="big">25:00</div><div class="sub">Focus</div></div></div><div class="row"><button data-m="25">Focus 25</button><button data-m="5">Break 5</button><button data-m="1">1 min</button><button data-m="10">10 min</button></div><div class="row"><button class="go on">Start</button><button class="rs">Reset</button></div>';
+  el.innerHTML='<h2>Timer</h2><div class="ringwrap"><svg viewBox="0 0 220 220"><circle cx="110" cy="110" r="92" fill="none" stroke="rgba(255,255,255,.16)" stroke-width="14"/><circle class="pg" cx="110" cy="110" r="92" fill="none" stroke="#ff9f0a" stroke-width="14" stroke-linecap="round" transform="rotate(-90 110 110)"/><circle class="kn" r="13" fill="#fff" style="filter:drop-shadow(0 2px 6px rgba(0,0,0,.45))"/></svg><div class="mid"><div class="big">25:00</div><div class="sub">Focus</div></div></div><div class="hint">Drag the ring for minutes, or inside it for seconds</div><div class="row"><button data-d="-10">−10s</button><button class="ty">Type time</button><button data-d="10">+10s</button></div><div class="row"><button data-m="25">Focus 25</button><button data-m="5">Break 5</button><button data-m="1">1 min</button><button data-m="10">10 min</button></div><div class="row"><button class="go on">Start</button><button class="rs">Reset</button></div>';
   let left=1500,total=1500,end=0,run=false,lm=25;
   const big=el.querySelector('.big'),go=el.querySelector('.go'),lab=el.querySelector('.mid .sub'),pg=el.querySelector('.pg'),kn=el.querySelector('.kn'),sv=el.querySelector('svg');
   const C=2*Math.PI*92;
@@ -276,12 +288,20 @@ function timerWidget(){
   };
   const beep=()=>{try{const a=new AudioContext(),o=a.createOscillator(),g=a.createGain();o.connect(g);g.connect(a.destination);o.frequency.value=660;g.gain.setValueAtTime(.2,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+1.2);o.start();o.stop(a.currentTime+1.2)}catch(e){}};
   let drag=false;
-  const pt=e=>{const r=sv.getBoundingClientRect();let a=Math.atan2(e.clientX-(r.left+r.width/2),-(e.clientY-(r.top+r.height/2)))*180/Math.PI;if(a<0)a+=360;
-    let m=Math.round(a/6);if(m===0)m=lm>30?60:1;lm=m;total=left=m*60;lab.textContent='Custom';el.classList.remove('done');draw()};
-  sv.onpointerdown=e=>{if(run)return;drag=true;sv.setPointerCapture(e.pointerId);pt(e)};
+  let fine=false;
+  const pt=e=>{const r=sv.getBoundingClientRect(),dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2);let a=Math.atan2(dx,-dy)*180/Math.PI;if(a<0)a+=360;
+    if(fine){const s=Math.round(a/6)%60;left=total=Math.max(1,Math.floor(left/60)*60+s)}
+    else{let m=Math.round(a/6);if(m===0)m=lm>30?60:1;lm=m;left=total=m*60}
+    lab.textContent='Custom';el.classList.remove('done');draw()};
+  sv.onpointerdown=e=>{if(run)return;const r=sv.getBoundingClientRect();fine=Math.hypot(e.clientX-(r.left+r.width/2),e.clientY-(r.top+r.height/2))<r.width*.5*(92/110)*.62;drag=true;sv.setPointerCapture(e.pointerId);pt(e)};
   sv.onpointermove=e=>{if(drag)pt(e)};
   sv.onpointerup=sv.onpointercancel=()=>{drag=false};
   el.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{run=false;go.textContent='Start';lm=+b.dataset.m;total=left=lm*60;lab.textContent=b.textContent;el.classList.remove('done');draw()});
+  el.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>{left=Math.max(1,left+ +b.dataset.d);if(run)end=Date.now()+left*1000;else total=left;lm=Math.max(1,Math.round(left/60));lab.textContent='Custom';draw()});
+  el.querySelector('.ty').onclick=()=>{if(run||el.querySelector('.tin'))return;
+    const i=document.createElement('input'),mid=el.querySelector('.mid');i.className='tin';i.placeholder='mm:ss';i.inputMode='numeric';mid.appendChild(i);big.style.display='none';i.focus();let fin=false;
+    const stop=ok=>{if(fin)return;fin=true;if(ok){const v=i.value.trim(),m=v.match(/^(\d+):(\d{1,2})$/),n=v.match(/^(\d+)(s?)$/);let s=0;if(m)s=+m[1]*60+ +m[2];else if(n)s=n[2]?+n[1]:+n[1]*60;if(s>0){left=total=Math.min(s,359999);lm=Math.max(1,Math.round(s/60));lab.textContent='Custom';draw()}}i.remove();big.style.display=''};
+    i.onkeydown=e=>{if(e.key==='Enter')stop(true);if(e.key==='Escape')stop(false)};i.onblur=()=>stop(true)};
   go.onclick=()=>{if(run){run=false;go.textContent='Resume';return}if(left<=0)left=total;end=Date.now()+left*1000;run=true;go.textContent='Pause';el.classList.remove('done')};
   el.querySelector('.rs').onclick=()=>{run=false;left=total;go.textContent='Start';el.classList.remove('done');draw()};
   setInterval(()=>{if(!run)return;left=Math.max(0,Math.round((end-Date.now())/1000));draw();if(left===0){run=false;go.textContent='Start';el.classList.add('done');beep();wake()}},250);
@@ -292,10 +312,10 @@ function timerWidget(){
 /* Notion list widget: used for both Tasks and Homework, each with its own databases */
 function listWidget(key,title,dbKey,dated){
   const el=document.createElement('div');el.className='card list';
-  el.innerHTML='<h2></h2><div class="lists"></div><div class="err"></div><div class="add"><select hidden></select><input></div>';
+  el.innerHTML='<h2></h2><div class="lists"></div><div class="err"></div><div class="add"><select hidden></select><input class="ti"><input type="date" class="dd" hidden aria-label="Due date"></div>';
   el.querySelector('h2').textContent=title;
-  const lists=el.querySelector('.lists'),sel=el.querySelector('select'),inp=el.querySelector('input'),eb=el.querySelector('.err');
-  inp.placeholder='Add '+(dated?'homework':'a task')+' and press Enter';
+  const lists=el.querySelector('.lists'),sel=el.querySelector('select'),inp=el.querySelector('.ti'),dd=el.querySelector('.dd'),eb=el.querySelector('.err');
+  dd.hidden=!dated;inp.placeholder='Add '+(dated?'homework':'a task')+' and press Enter';
   let DB=[],err='';
   const ids=()=>[...new Set((S[dbKey]||'').split(/[\s,]+/).map(x=>x.replace(/-/g,'').match(/[0-9a-f]{32}/i)).filter(Boolean).map(m=>m[0].toLowerCase()))];
   const cfg=()=>S.token&&S.proxy&&ids().length;
@@ -326,7 +346,7 @@ function listWidget(key,title,dbKey,dated){
     DB.forEach(db=>{
       if(DB.length>1){const h=document.createElement('h3');h.textContent=db.title;lists.appendChild(h)}
       const ul=document.createElement('ul');
-      db.items.slice().sort((a,b)=>(a.d-b.d)||((a.due||'9')<(b.due||'9')?-1:1)).slice(0,6).forEach(it=>ul.appendChild(row(it,()=>toggle(db,it))));
+      db.items.slice().sort((a,b)=>(a.d-b.d)||((a.due||'9')<(b.due||'9')?-1:1)).forEach(it=>ul.appendChild(row(it,()=>toggle(db,it))));
       if(!db.items.length){const s=document.createElement('div');s.className='sub';s.textContent='Nothing here yet.';ul.appendChild(s)}
       lists.appendChild(ul);
     });
@@ -344,7 +364,7 @@ function listWidget(key,title,dbKey,dated){
           doneIds=g?g.option_ids:[];done=s.options.find(o=>doneIds.includes(o.id));todo=s.options.find(o=>t&&t.option_ids.includes(o.id))||s.options.find(o=>!doneIds.includes(o.id))}
         const q=await nf('/v1/databases/'+id+'/query','POST',{page_size:50,sorts:[{timestamp:'created_time',direction:'descending'}]});
         const items=q.results.map(p=>{const pp=p.properties;return{id:p.id,t:pp[tp].title.map(x=>x.plain_text).join('')||'Untitled',due:dt&&pp[dt[0]].date?pp[dt[0]].date.start:'',d:kind==='cb'?!!pp[cp].checkbox:kind==='st'?!!(pp[cp].status&&doneIds.includes(pp[cp].status.id)):false}});
-        return{id,title:m.title.map(x=>x.plain_text).join('')||'Database',tp,kind,cp,done,todo,items};
+        return{id,title:m.title.map(x=>x.plain_text).join('')||'Database',tp,dp:dt?dt[0]:null,kind,cp,done,todo,items};
       }));
       err='';
     }catch(e){err=e.message+'. Check the proxy, token and that the database is shared with your integration.'}
@@ -360,10 +380,11 @@ function listWidget(key,title,dbKey,dated){
   }
   inp.onkeydown=async e=>{
     if(e.key!=='Enter'||!inp.value.trim())return;
-    const t=inp.value.trim();inp.value='';
-    if(!cfg()){S.loc[key].push({t,d:0});save();draw();return}
+    const t=inp.value.trim(),due=dd.value;inp.value='';dd.value='';
+    if(!cfg()){const L=S.loc[key];L.push({t,d:0,due});if(dated)L.sort((x,y)=>(x.due||'9')<(y.due||'9')?-1:1);save();draw();return}
     const db=DB[sel.hidden?0:+sel.value];if(!db)return;
-    try{await nf('/v1/pages','POST',{parent:{database_id:db.id},properties:{[db.tp]:{title:[{text:{content:t}}]}}});await load()}catch(x){err=x.message;draw()}
+    const pr={[db.tp]:{title:[{text:{content:t}}]}};if(due&&db.dp)pr[db.dp]={date:{start:due}};
+    try{await nf('/v1/pages','POST',{parent:{database_id:db.id},properties:pr});await load();if(due&&!db.dp){err='That database has no date property, so the date was not saved.';draw()}}catch(x){err=x.message;draw()}
   };
   el.load=load;load();setInterval(load,120000);
   return el;
@@ -391,7 +412,7 @@ function setActive(a){
   if(url){fetch(url,{method:'POST',mode:'no-cors',body:JSON.stringify({event:a?'arrive':'leave',phase:document.body.dataset.phase})}).catch(()=>{})}
 }
 function wake(){last=Date.now();setActive(true)}
-document.addEventListener('pointerdown',()=>{wake();lockScreen()});
+document.addEventListener('pointerdown',()=>{wake();lockScreen()});document.addEventListener('keydown',wake);
 setInterval(()=>{
   const busy=W.timer&&W.timer.running&&W.timer.running();
   if(active&&!busy&&!$('#dlg').open&&Date.now()-last>S.idle*1000)setActive(false);
