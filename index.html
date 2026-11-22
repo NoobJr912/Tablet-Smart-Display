@@ -72,12 +72,39 @@ dialog textarea{background:rgba(255,255,255,.07);border:0;border-radius:12px;pad
 dialog small{color:var(--faint);display:block;margin:6px 0;font-size:13px;line-height:1.4}
 #msg{position:fixed;left:50%;bottom:2vmin;transform:translateX(-50%);color:var(--mute);font-size:2vmin}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* wallpaper and liquid glass */
+.wall{position:fixed;inset:0;background:#05060a;overflow:hidden}
+.wall svg{position:absolute;inset:0;width:100%;height:100%}
+.wall::after{content:"";position:absolute;inset:0;background:rgba(0,0,0,.25)}
+body[data-wall=black] .glow,body[data-wall=shapes] .glow,body[data-wall=rings] .glow,body[data-wall=waves] .glow{display:none}
+.fl{animation:fl 40s ease-in-out infinite alternate}
+@keyframes fl{to{transform:translate(22px,-14px)}}
+.card{background:linear-gradient(180deg,rgba(255,255,255,.17),rgba(255,255,255,.06));-webkit-backdrop-filter:blur(22px) saturate(180%);backdrop-filter:blur(22px) saturate(180%);border-radius:32px;
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.5),inset 0 0 0 1px rgba(255,255,255,.12),inset 0 -14px 28px rgba(255,255,255,.04),0 20px 44px rgba(0,0,0,.28)}
+body:not(.idle) .head{display:none}
+body:not(.idle) .widgets{margin-top:0}
+body.idle .widgets{height:0;margin:0;overflow:hidden}
+.clk{text-align:center}
+.clk svg{width:min(30vmin,240px);display:block;margin:0 auto}
+.clk .dig{font-size:4vmin;font-weight:300;letter-spacing:-.03em;margin-top:1.6vmin}
+.wxrow{display:flex;align-items:center;gap:2.4vmin}
+.wxrow .ic svg{width:13vmin;height:13vmin;min-width:72px;min-height:72px;display:block}
+.ringwrap{position:relative;width:min(36vmin,270px);margin:0 auto}
+.ringwrap svg{width:100%;display:block;touch-action:none;cursor:grab}
+.ringwrap .mid{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
+.timer .big{font-size:8vmin}
+.timer .mid .sub{margin-top:0;font-size:2.2vmin}
+.timer .row{justify-content:center}
+dialog select{background:none;border:0;color:var(--mute);font-size:16px;outline:0;text-align:right}
+dialog select option{color:#111}
 </style>
 </head>
 <body data-phase="day" class="idle">
+<div class="wall"></div>
 <div class="glow"></div>
 <main>
-  <div><div class="clock" id="clock">--:--</div><div class="date" id="date"></div></div>
+  <div class="head"><div class="clock" id="clock">--:--</div><div class="date" id="date"></div></div>
   <div class="widgets" id="widgets"></div>
 </main>
 <button id="gear" aria-label="Settings">Settings</button>
@@ -87,6 +114,8 @@ dialog small{color:var(--faint);display:block;margin:6px 0;font-size:13px;line-h
 <dialog id="dlg">
   <h3>Widgets</h3>
   <div id="order"></div>
+  <h3>Wallpaper</h3>
+  <label>Style <select id="wall"><option value="shapes">Shapes</option><option value="rings">Rings</option><option value="waves">Waves</option><option value="glow">Soft glow</option><option value="black">Black</option></select></label>
   <h3>Notion</h3>
   <small>Needs a proxy, because Notion blocks direct requests from web pages (see notion-proxy.js). Share each database with your Notion integration first. The token is saved only on this device.</small>
   <label>Proxy URL <input type="url" id="proxy" placeholder="https://...workers.dev"></label>
@@ -113,15 +142,15 @@ dialog small{color:var(--faint);display:block;margin:6px 0;font-size:13px;line-h
 
 <script>
 const $=s=>document.querySelector(s);
-const NAMES={weather:'Weather',timer:'Timer and focus',tasks:'Tasks',homework:'Homework'};
-const DEF={order:['weather','timer','tasks','homework'],on:{weather:1,timer:1,tasks:1,homework:1},lat:'',lon:'',idle:45,sens:6,cam:1,h24:0,arrive:'',leave:'',loc:{tasks:[],homework:[]},proxy:'',token:'',dbs:'',hw:''};
+const NAMES={clock:'Clock',weather:'Weather',timer:'Timer and focus',tasks:'Tasks',homework:'Homework'};
+const DEF={wall:'shapes',order:['clock','weather','timer','tasks','homework'],on:{clock:1,weather:1,timer:1,tasks:1,homework:1},lat:'',lon:'',idle:45,sens:6,cam:1,h24:0,arrive:'',leave:'',loc:{tasks:[],homework:[]},proxy:'',token:'',dbs:'',hw:''};
 let S=Object.assign({},DEF);
 try{Object.assign(S,JSON.parse(localStorage.getItem('sd')||'{}'))}catch(e){}
 /* migrate older saved settings */
 if(Array.isArray(S.tasks)){S.loc=Object.assign({tasks:[],homework:[]},S.loc,{tasks:S.tasks});delete S.tasks}
 S.loc=Object.assign({tasks:[],homework:[]},S.loc);
 S.on=Object.assign({},DEF.on,S.on);
-DEF.order.forEach(id=>{if(!S.order.includes(id))S.order.push(id)});
+DEF.order.forEach((id,i)=>{if(!S.order.includes(id))S.order.splice(i,0,id)});
 const save=()=>{try{localStorage.setItem('sd',JSON.stringify(S))}catch(e){}};
 const msg=t=>{$('#msg').textContent=t};
 
@@ -137,35 +166,108 @@ setInterval(tick,1000);tick();
 
 /* widgets */
 const W={};
+/* wallpapers */
+const G=(id,a,b)=>`<linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--${a})"/><stop offset="1" style="stop-color:var(--${b})"/></linearGradient>`;
+const WD='<defs>'+G('w1','g1','g2')+G('w2','g2','g3')+G('w3','g3','g1')+'</defs>';
+const WALLS={
+ shapes:`<svg viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">${WD}<g class="fl">
+  <circle cx="300" cy="260" r="260" fill="url(#w1)"/>
+  <rect x="900" y="80" width="420" height="420" rx="110" transform="rotate(18 1110 290)" fill="url(#w2)"/>
+  <circle cx="1250" cy="760" r="170" fill="none" stroke="url(#w3)" stroke-width="46"/>
+  <rect x="120" y="700" width="520" height="170" rx="85" transform="rotate(-14 380 785)" fill="url(#w3)"/>
+  <circle cx="760" cy="620" r="90" fill="url(#w1)"/>
+  <circle cx="1480" cy="210" r="55" fill="url(#w3)"/>
+  <polygon points="640,120 760,330 520,330" fill="url(#w2)" stroke="url(#w2)" stroke-width="40" stroke-linejoin="round"/></g></svg>`,
+ rings:`<svg viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">${WD}<g class="fl">
+  <circle cx="800" cy="500" r="110" fill="url(#w1)"/>
+  <circle cx="800" cy="500" r="230" fill="none" stroke="url(#w2)" stroke-width="40"/>
+  <circle cx="800" cy="500" r="360" fill="none" stroke="url(#w3)" stroke-width="26"/>
+  <circle cx="800" cy="500" r="500" fill="none" stroke="url(#w1)" stroke-width="60" opacity=".8"/>
+  <circle cx="1200" cy="250" r="70" fill="url(#w3)"/></g></svg>`,
+ waves:`<svg viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">${WD}<g class="fl">
+  <path d="M0 520C300 380 520 660 820 520S1330 400 1600 520V1000H0Z" fill="url(#w1)"/>
+  <path d="M0 660C320 520 560 800 860 660S1340 560 1600 680V1000H0Z" fill="url(#w2)" opacity=".9"/>
+  <path d="M0 800C340 680 600 900 900 800S1360 730 1600 820V1000H0Z" fill="url(#w3)"/>
+  <circle cx="1230" cy="230" r="120" fill="url(#w3)"/></g></svg>`};
+function setWall(){document.body.dataset.wall=S.wall;$('.wall').innerHTML=WALLS[S.wall]||''}
+$('#wall').onchange=()=>{S.wall=$('#wall').value;setWall()};
+setWall();
+
+/* clock */
+function clockWidget(){
+  const el=document.createElement('div');el.className='card clk';
+  let t='',n='';
+  for(let i=0;i<60;i++){const a=i*6*Math.PI/180,r1=i%5?93:87,r2=97,s=Math.sin(a),c=Math.cos(a);t+=`<line x1="${100+r1*s}" y1="${100-r1*c}" x2="${100+r2*s}" y2="${100-r2*c}" stroke="${i%5?'rgba(255,255,255,.35)':'#fff'}" stroke-width="${i%5?1:2.2}" stroke-linecap="round"/>`}
+  for(let i=1;i<=12;i++){const a=i*30*Math.PI/180;n+=`<text x="${100+68*Math.sin(a)}" y="${100-68*Math.cos(a)+7}" text-anchor="middle" font-size="20" font-weight="500" fill="#fff" style="font-family:var(--font)">${i}</text>`}
+  el.innerHTML=`<svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="99" fill="rgba(8,8,12,.55)"/>${t}${n}<line class="hh" x1="100" y1="100" x2="100" y2="58" stroke="#fff" stroke-width="6" stroke-linecap="round"/><line class="mm" x1="100" y1="100" x2="100" y2="36" stroke="#fff" stroke-width="4.5" stroke-linecap="round"/><line class="ss" x1="100" y1="116" x2="100" y2="30" stroke="#ff9f0a" stroke-width="2" stroke-linecap="round"/><circle cx="100" cy="100" r="5" fill="#ff9f0a"/></svg><div class="dig"></div><div class="sub"></div>`;
+  const $$=s=>el.querySelector(s);
+  const up=()=>{const d=new Date(),m=d.getMinutes(),s=d.getSeconds();
+    $$('.hh').setAttribute('transform',`rotate(${(d.getHours()%12+m/60)*30} 100 100)`);
+    $$('.mm').setAttribute('transform',`rotate(${m*6+s*.1} 100 100)`);
+    $$('.ss').setAttribute('transform',`rotate(${s*6} 100 100)`);
+    $$('.dig').textContent=d.toLocaleTimeString([],{hour:'numeric',minute:'2-digit',hour12:!S.h24});
+    $$('.sub').textContent=d.toLocaleDateString([],{weekday:'long',day:'numeric',month:'long'})};
+  up();setInterval(up,1000);
+  return el;
+}
+
+/* weather with icons */
+const CLOUD='<path d="M22 48h24a10 10 0 0 0 2-19.8 14 14 0 0 0-26.6 3A8.5 8.5 0 0 0 22 48z" fill="#f2f2f7"/>';
+function sunSvg(cx,cy,r,len){let s=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="#ffd60a"/>`;for(let i=0;i<8;i++){const a=i*Math.PI/4,c=Math.cos(a),n=Math.sin(a);s+=`<line x1="${cx+(r+4)*c}" y1="${cy+(r+4)*n}" x2="${cx+(r+4+len)*c}" y2="${cy+(r+4+len)*n}" stroke="#ffd60a" stroke-width="3.5" stroke-linecap="round"/>`}return s}
+function wxIcon(c,day){
+  let b;
+  if(c===0)b=day?sunSvg(32,32,11,7):'<path d="M40 12a20 20 0 1 0 14 34A17 17 0 0 1 40 12z" fill="#f2f2f7"/>';
+  else if(c<3)b=(day?sunSvg(24,24,8,5):'<path d="M30 8a14 14 0 1 0 10 24A12 12 0 0 1 30 8z" fill="#f2f2f7"/>')+CLOUD;
+  else if(c<50)b=c<45?CLOUD:'<g stroke="#d1d1d6" stroke-width="4" stroke-linecap="round"><line x1="14" y1="24" x2="50" y2="24"/><line x1="10" y1="34" x2="54" y2="34"/><line x1="16" y1="44" x2="48" y2="44"/></g>';
+  else if(c<70||(c>=80&&c<83))b='<g transform="translate(0 -8)">'+CLOUD+'</g><g stroke="#64d2ff" stroke-width="4" stroke-linecap="round"><line x1="24" y1="46" x2="21" y2="55"/><line x1="34" y1="46" x2="31" y2="55"/><line x1="44" y1="46" x2="41" y2="55"/></g>';
+  else if(c<95)b='<g transform="translate(0 -8)">'+CLOUD+'</g><g fill="#fff"><circle cx="24" cy="50" r="3"/><circle cx="34" cy="55" r="3"/><circle cx="44" cy="50" r="3"/></g>';
+  else b='<g transform="translate(0 -8)"><path d="M22 48h24a10 10 0 0 0 2-19.8 14 14 0 0 0-26.6 3A8.5 8.5 0 0 0 22 48z" fill="#aeaeb2"/></g><polygon points="35,40 27,54 33,54 30,63 42,47 35,47" fill="#ffd60a"/>';
+  return `<svg viewBox="0 0 64 64">${b}</svg>`;
+}
 function weatherWidget(){
   const el=document.createElement('div');el.className='card';
-  el.innerHTML='<h2>Weather</h2><div class="big">--</div><div class="sub"></div><div class="sub hl"></div>';
-  const wx=c=>c==0?'Clear':c<4?'Partly cloudy':c<50?'Fog':c<60?'Drizzle':c<70?'Rain':c<80?'Snow':c<90?'Showers':'Thunderstorm';
+  el.innerHTML='<h2>Weather</h2><div class="wxrow"><div class="ic"></div><div class="big">--</div></div><div class="sub"></div><div class="sub hl"></div>';
+  const wx=c=>c==0?'Clear':c<3?'Partly cloudy':c<4?'Cloudy':c<50?'Fog':c<60?'Drizzle':c<70?'Rain':c<80?'Snow':c<90?'Showers':'Thunderstorm';
   el.load=async()=>{
     if(!S.lat||!S.lon){el.querySelector('.sub').textContent='Add your location in Settings.';return}
     try{
-      const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${S.lat}&longitude=${S.lon}&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&timezone=auto`);
-      const j=await r.json();
+      const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${S.lat}&longitude=${S.lon}&current=temperature_2m,weather_code,is_day&daily=temperature_2m_max,temperature_2m_min&timezone=auto`);
+      const j=await r.json(),c=j.current.weather_code;
+      el.querySelector('.ic').innerHTML=wxIcon(c,j.current.is_day);
       el.querySelector('.big').textContent=Math.round(j.current.temperature_2m)+'°';
-      el.querySelector('.sub').textContent=wx(j.current.weather_code);
+      el.querySelector('.sub').textContent=wx(c);
       el.querySelector('.hl').textContent='High '+Math.round(j.daily.temperature_2m_max[0])+'°, low '+Math.round(j.daily.temperature_2m_min[0])+'°';
     }catch(e){el.querySelector('.sub').textContent='Can’t reach the weather service.'}
   };
   el.load();setInterval(el.load,15*60*1000);
   return el;
 }
+
+/* timer with draggable ring */
 function timerWidget(){
   const el=document.createElement('div');el.className='card timer';
-  el.innerHTML='<h2>Timer and focus</h2><div class="big">25:00</div><div class="sub">Focus</div><div class="row"><button data-m="25">Focus 25</button><button data-m="5">Break 5</button><button data-m="1">1 min</button><button data-m="10">10 min</button></div><div class="row"><button class="go on">Start</button><button class="rs">Reset</button></div>';
-  let left=1500,total=1500,end=0,run=false;
-  const big=el.querySelector('.big'),go=el.querySelector('.go'),lab=el.querySelector('.sub');
-  const show=()=>{big.textContent=String(Math.floor(left/60)).padStart(2,'0')+':'+String(left%60).padStart(2,'0')};
+  el.innerHTML='<h2>Timer</h2><div class="ringwrap"><svg viewBox="0 0 220 220"><circle cx="110" cy="110" r="92" fill="none" stroke="rgba(255,255,255,.16)" stroke-width="14"/><circle class="pg" cx="110" cy="110" r="92" fill="none" stroke="#ff9f0a" stroke-width="14" stroke-linecap="round" transform="rotate(-90 110 110)"/><circle class="kn" r="13" fill="#fff" style="filter:drop-shadow(0 2px 6px rgba(0,0,0,.45))"/></svg><div class="mid"><div class="big">25:00</div><div class="sub">Focus</div></div></div><div class="row"><button data-m="25">Focus 25</button><button data-m="5">Break 5</button><button data-m="1">1 min</button><button data-m="10">10 min</button></div><div class="row"><button class="go on">Start</button><button class="rs">Reset</button></div>';
+  let left=1500,total=1500,end=0,run=false,lm=25;
+  const big=el.querySelector('.big'),go=el.querySelector('.go'),lab=el.querySelector('.mid .sub'),pg=el.querySelector('.pg'),kn=el.querySelector('.kn'),sv=el.querySelector('svg');
+  const C=2*Math.PI*92;
+  const draw=()=>{
+    big.textContent=String(Math.floor(left/60)).padStart(2,'0')+':'+String(left%60).padStart(2,'0');
+    const f=Math.min(1,left/3600),a=f*2*Math.PI;
+    pg.style.strokeDasharray=C;pg.style.strokeDashoffset=C*(1-f);
+    kn.setAttribute('cx',110+92*Math.sin(a));kn.setAttribute('cy',110-92*Math.cos(a));
+  };
   const beep=()=>{try{const a=new AudioContext(),o=a.createOscillator(),g=a.createGain();o.connect(g);g.connect(a.destination);o.frequency.value=660;g.gain.setValueAtTime(.2,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+1.2);o.start();o.stop(a.currentTime+1.2)}catch(e){}};
-  el.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{run=false;go.textContent='Start';total=left=b.dataset.m*60;lab.textContent=b.textContent;el.classList.remove('done');show()});
+  let drag=false;
+  const pt=e=>{const r=sv.getBoundingClientRect();let a=Math.atan2(e.clientX-(r.left+r.width/2),-(e.clientY-(r.top+r.height/2)))*180/Math.PI;if(a<0)a+=360;
+    let m=Math.round(a/6);if(m===0)m=lm>30?60:1;lm=m;total=left=m*60;lab.textContent='Custom';el.classList.remove('done');draw()};
+  sv.onpointerdown=e=>{if(run)return;drag=true;sv.setPointerCapture(e.pointerId);pt(e)};
+  sv.onpointermove=e=>{if(drag)pt(e)};
+  sv.onpointerup=sv.onpointercancel=()=>{drag=false};
+  el.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{run=false;go.textContent='Start';lm=+b.dataset.m;total=left=lm*60;lab.textContent=b.textContent;el.classList.remove('done');draw()});
   go.onclick=()=>{if(run){run=false;go.textContent='Resume';return}if(left<=0)left=total;end=Date.now()+left*1000;run=true;go.textContent='Pause';el.classList.remove('done')};
-  el.querySelector('.rs').onclick=()=>{run=false;left=total;go.textContent='Start';el.classList.remove('done');show()};
-  setInterval(()=>{if(!run)return;left=Math.max(0,Math.round((end-Date.now())/1000));show();if(left===0){run=false;go.textContent='Start';el.classList.add('done');beep();wake()}},250);
-  el.running=()=>run;
+  el.querySelector('.rs').onclick=()=>{run=false;left=total;go.textContent='Start';el.classList.remove('done');draw()};
+  setInterval(()=>{if(!run)return;left=Math.max(0,Math.round((end-Date.now())/1000));draw();if(left===0){run=false;go.textContent='Start';el.classList.add('done');beep();wake()}},250);
+  el.running=()=>run;draw();
   return el;
 }
 
@@ -248,7 +350,7 @@ function listWidget(key,title,dbKey,dated){
   el.load=load;load();setInterval(load,120000);
   return el;
 }
-const MAKE={weather:weatherWidget,timer:timerWidget,tasks:()=>listWidget('tasks','Tasks','dbs',false),homework:()=>listWidget('homework','Homework','hw',true)};
+const MAKE={clock:clockWidget,weather:weatherWidget,timer:timerWidget,tasks:()=>listWidget('tasks','Tasks','dbs',false),homework:()=>listWidget('homework','Homework','hw',true)};
 function layout(){
   const box=$('#widgets');box.innerHTML='';
   S.order.forEach(id=>{if(!S.on[id]||!MAKE[id])return;W[id]=W[id]||MAKE[id]();box.appendChild(W[id])});
@@ -312,14 +414,14 @@ $('#gear').onclick=()=>{
   $('#cam-on').checked=!!S.cam;$('#sens').value=S.sens;$('#idle').value=S.idle;$('#h24').checked=!!S.h24;
   $('#lat').value=S.lat;$('#lon').value=S.lon;$('#arrive').value=S.arrive;$('#leave').value=S.leave;
   $('#proxy').value=S.proxy;$('#token').value=S.token;$('#dbs').value=S.dbs;$('#hw').value=S.hw;
-  drawOrder();$('#dlg').showModal();
+  $('#wall').value=S.wall;drawOrder();$('#dlg').showModal();
 };
 $('#geo').onclick=()=>navigator.geolocation.getCurrentPosition(p=>{$('#lat').value=p.coords.latitude.toFixed(3);$('#lon').value=p.coords.longitude.toFixed(3)},()=>msg('Location unavailable. Enter it by hand.'));
 $('#full').onclick=()=>document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen();
 $('#close').onclick=()=>{
   S.cam=$('#cam-on').checked?1:0;S.sens=+$('#sens').value;S.idle=+$('#idle').value||45;S.h24=$('#h24').checked?1:0;
   S.lat=$('#lat').value.trim();S.lon=$('#lon').value.trim();S.arrive=$('#arrive').value.trim();S.leave=$('#leave').value.trim();
-  S.proxy=$('#proxy').value.trim();S.token=$('#token').value.trim();S.dbs=$('#dbs').value;S.hw=$('#hw').value;
+  S.wall=$('#wall').value;setWall();S.proxy=$('#proxy').value.trim();S.token=$('#token').value.trim();S.dbs=$('#dbs').value;S.hw=$('#hw').value;
   save();$('#dlg').close();tick();
   ['weather','tasks','homework'].forEach(k=>W[k]&&W[k].load());
   startCam();last=Date.now();
