@@ -177,6 +177,19 @@ body.idle .widgets{flex:none}
   .list{max-height:none}
   .list .lists{max-height:min(60vw,420px)}
 }
+
+/* larger text for clock and weather on big screens, subject line, deck positioning */
+.widgets{position:relative}
+.list li .t small{display:block;color:var(--mute);font-size:.78em;margin-top:2px}
+.stack .wx .big{font-size:clamp(28px,min(15cqw,9vmin),110px)}
+.stack .wx .wxrow .ic svg{width:clamp(44px,min(17cqw,10vmin),130px);height:clamp(44px,min(17cqw,10vmin),130px)}
+.stack .wx .sub{font-size:clamp(11px,min(5cqw,2.6vmin),30px)}
+.stack .clk .dig{font-size:clamp(24px,min(11cqw,6vmin),80px)}
+.stack .clk .sub{font-size:clamp(12px,min(4.6cqw,2.4vmin),28px)}
+.wx .big{font-size:clamp(34px,min(15cqw,9vmin),110px)}
+.wx .sub{font-size:clamp(12px,min(5cqw,2.6vmin),30px)}
+.clk .dig{font-size:clamp(24px,min(11cqw,6vmin),80px)}
+.clk .sub{font-size:clamp(12px,min(4.6cqw,2.4vmin),28px)}
 </style>
 </head>
 <body data-phase="day" class="idle">
@@ -201,8 +214,13 @@ body.idle .widgets{flex:none}
   <label>Integration token <input type="password" id="token" placeholder="secret_..."></label>
   <small>Tasks databases: IDs or links, one per line</small>
   <textarea id="dbs"></textarea>
-  <small>Homework databases: IDs or links, one per line. If the database has a date property, it shows as the due date.</small>
+  <small>Homework databases: IDs or links, one per line. Homework is for viewing only, so nothing can be added from the display.</small>
   <textarea id="hw"></textarea>
+  <label>Due date property <input type="text" id="hwDue" placeholder="Auto (first date property)"></label>
+  <label>Subject property <input type="text" id="hwSubj" placeholder="Optional, e.g. Subject"></label>
+  <label>Done property <input type="text" id="hwDone" placeholder="Auto (checkbox or status)"></label>
+  <label>Date style <select id="hwStyle"><option value="rel">Relative (Tomorrow)</option><option value="abs">Date (Fri 28 Nov)</option></select></label>
+  <label>Show completed homework <input type="checkbox" id="hwShowDone"></label>
   <h3>Presence</h3>
   <label>Use camera to detect presence <input type="checkbox" id="cam-on"></label>
   <label>Sensitivity <input type="range" id="sens" min="1" max="10"></label>
@@ -222,7 +240,7 @@ body.idle .widgets{flex:none}
 <script>
 const $=s=>document.querySelector(s);
 const NAMES={clock:'Clock',weather:'Weather',timer:'Timer and focus',tasks:'Tasks',homework:'Homework'};
-const DEF={wall:'shapes',order:['clock','weather','timer','tasks','homework'],on:{clock:1,weather:1,timer:1,tasks:1,homework:1},lat:'',lon:'',idle:45,sens:6,cam:1,h24:0,arrive:'',leave:'',loc:{tasks:[],homework:[]},proxy:'',token:'',dbs:'',hw:''};
+const DEF={wall:'shapes',order:['clock','weather','timer','tasks','homework'],on:{clock:1,weather:1,timer:1,tasks:1,homework:1},lat:'',lon:'',idle:45,sens:6,cam:1,h24:0,arrive:'',leave:'',loc:{tasks:[],homework:[]},proxy:'',token:'',dbs:'',hw:'',hwDue:'',hwSubj:'',hwDone:'',hwStyle:'rel',hwShowDone:1};
 let S=Object.assign({},DEF);
 try{Object.assign(S,JSON.parse(localStorage.getItem('sd')||'{}'))}catch(e){}
 /* migrate older saved settings */
@@ -361,10 +379,10 @@ function timerWidget(){
 /* Notion list widget: used for both Tasks and Homework, each with its own databases */
 function listWidget(key,title,dbKey,dated){
   const el=document.createElement('div');el.className='card list';
-  el.innerHTML='<h2></h2><div class="lists"></div><div class="err"></div><div class="add"><select hidden></select><input class="ti"><input type="date" class="dd" hidden aria-label="Due date"></div>';
+  el.innerHTML='<h2></h2><div class="lists"></div><div class="err"></div><div class="add"><select hidden></select><input class="ti"></div>';
   el.querySelector('h2').textContent=title;
-  const lists=el.querySelector('.lists'),sel=el.querySelector('select'),inp=el.querySelector('.ti'),dd=el.querySelector('.dd'),eb=el.querySelector('.err');
-  dd.hidden=!dated;inp.placeholder='Add '+(dated?'homework':'a task')+' and press Enter';
+  const lists=el.querySelector('.lists'),sel=el.querySelector('select'),inp=el.querySelector('.ti'),eb=el.querySelector('.err');
+  if(dated)el.querySelector('.add').remove();inp.placeholder='Add '+(dated?'homework':'a task')+' and press Enter';
   let DB=[],err='';
   const ids=()=>[...new Set((S[dbKey]||'').split(/[\s,]+/).map(x=>x.replace(/-/g,'').match(/[0-9a-f]{32}/i)).filter(Boolean).map(m=>m[0].toLowerCase()))];
   const cfg=()=>S.token&&S.proxy&&ids().length;
@@ -372,19 +390,21 @@ function listWidget(key,title,dbKey,dated){
     const r=await fetch(S.proxy.replace(/\/+$/,'')+p,{method:m,headers:{Authorization:'Bearer '+S.token,'Content-Type':'application/json'},body:b?JSON.stringify(b):undefined});
     const j=await r.json();if(!r.ok)throw new Error(j.message||('Error '+r.status));return j;
   };
+  const sv=p=>{if(!p)return'';switch(p.type){case'select':return p.select?p.select.name:'';case'multi_select':return p.multi_select.map(x=>x.name).join(', ');case'rich_text':return p.rich_text.map(x=>x.plain_text).join('');case'status':return p.status?p.status.name:'';case'formula':return(p.formula&&p.formula.string)||'';default:return''}};
   const fmt=s=>{const d=new Date(s.length>10?s:s+'T00:00'),t=new Date();t.setHours(0,0,0,0);const n=Math.round((d-t)/864e5);
-    return n===0?'Today':n===1?'Tomorrow':n===-1?'Yesterday':d.toLocaleDateString([],{weekday:'short',day:'numeric',month:'short'})};
+    const ab=d.toLocaleDateString([],{weekday:'short',day:'numeric',month:'short'});return dated&&S.hwStyle==='abs'?ab:n===0?'Today':n===1?'Tomorrow':n===-1?'Yesterday':ab};
   const late=s=>new Date(s.length>10?s:s+'T23:59')<new Date();
   const row=(it,fn)=>{
     const li=document.createElement('li');if(it.d)li.className='d';
     li.innerHTML='<span class="dot"></span><span class="t"></span>';
-    li.querySelector('.t').textContent=it.t;
+    li.querySelector('.t').textContent=it.t;if(it.subj){const s=document.createElement('small');s.textContent=it.subj;li.querySelector('.t').appendChild(s)}
     if(it.due){const s=document.createElement('span');s.className='due'+(!it.d&&late(it.due)?' late':'');s.textContent=fmt(it.due);li.appendChild(s)}
     li.querySelector('.dot').onclick=li.querySelector('.t').onclick=fn;
     return li;
   };
   function draw(){
     lists.innerHTML='';eb.textContent=err;sel.hidden=true;
+    if(!cfg()&&dated){lists.innerHTML='<div class="sub">Add your Notion token, proxy and homework database in Settings.</div>';return}
     if(!cfg()){
       const loc=S.loc[key],ul=document.createElement('ul');
       loc.forEach((t,i)=>{const li=row(t,()=>{t.d=!t.d;save();draw()});const x=document.createElement('button');x.textContent='×';x.setAttribute('aria-label','Remove');x.onclick=()=>{loc.splice(i,1);save();draw()};li.appendChild(x);ul.appendChild(li)});
@@ -395,7 +415,7 @@ function listWidget(key,title,dbKey,dated){
     DB.forEach(db=>{
       if(DB.length>1){const h=document.createElement('h3');h.textContent=db.title;lists.appendChild(h)}
       const ul=document.createElement('ul');
-      db.items.slice().sort((a,b)=>(a.d-b.d)||((a.due||'9')<(b.due||'9')?-1:1)).forEach(it=>ul.appendChild(row(it,()=>toggle(db,it))));
+      db.items.filter(it=>!(dated&&!S.hwShowDone&&it.d)).sort((a,b)=>(a.d-b.d)||((a.due||'9')<(b.due||'9')?-1:1)).forEach(it=>ul.appendChild(row(it,()=>toggle(db,it))));
       if(!db.items.length){const s=document.createElement('div');s.className='sub';s.textContent='Nothing here yet.';ul.appendChild(s)}
       lists.appendChild(ul);
     });
@@ -403,19 +423,26 @@ function listWidget(key,title,dbKey,dated){
   }
   async function load(){
     if(!cfg()){DB=[];draw();return}
+    const warn=[];
     try{
       DB=await Promise.all(ids().map(async id=>{
         const m=await nf('/v1/databases/'+id),pr=Object.entries(m.properties);
-        const tp=pr.find(([k,v])=>v.type==='title')[0],cb=pr.find(([k,v])=>v.type==='checkbox'),st=pr.find(([k,v])=>v.type==='status'),dt=pr.find(([k,v])=>v.type==='date');
+        const tp=pr.find(([k,v])=>v.type==='title')[0],H=dated,nm=n=>n&&n.trim()?pr.find(([k])=>k.toLowerCase()===n.trim().toLowerCase()):null;
+        let cb=pr.find(([k,v])=>v.type==='checkbox'),st=pr.find(([k,v])=>v.type==='status'),dt=pr.find(([k,v])=>v.type==='date'),sj=null;
+        if(H){
+          if(S.hwDone){const x=nm(S.hwDone);if(x&&x[1].type==='checkbox'){cb=x;st=null}else if(x&&x[1].type==='status'){st=x;cb=null}else{cb=st=null;warn.push('No checkbox or status property called “'+S.hwDone+'”.')}}
+          if(S.hwDue){const x=nm(S.hwDue);if(x&&x[1].type==='date')dt=x;else{dt=null;warn.push('No date property called “'+S.hwDue+'”.')}}
+          if(S.hwSubj){const x=nm(S.hwSubj);if(x)sj=x;else warn.push('No property called “'+S.hwSubj+'”.')}
+        }
         let kind='none',cp,doneIds=[],done,todo;
         if(cb){kind='cb';cp=cb[0]}
         else if(st){kind='st';cp=st[0];const s=st[1].status,g=s.groups.find(g=>/complete/i.test(g.name)),t=s.groups.find(g=>/to-?do/i.test(g.name));
           doneIds=g?g.option_ids:[];done=s.options.find(o=>doneIds.includes(o.id));todo=s.options.find(o=>t&&t.option_ids.includes(o.id))||s.options.find(o=>!doneIds.includes(o.id))}
-        const q=await nf('/v1/databases/'+id+'/query','POST',{page_size:50,sorts:[{timestamp:'created_time',direction:'descending'}]});
-        const items=q.results.map(p=>{const pp=p.properties;return{id:p.id,t:pp[tp].title.map(x=>x.plain_text).join('')||'Untitled',due:dt&&pp[dt[0]].date?pp[dt[0]].date.start:'',d:kind==='cb'?!!pp[cp].checkbox:kind==='st'?!!(pp[cp].status&&doneIds.includes(pp[cp].status.id)):false}});
+        const q=await nf('/v1/databases/'+id+'/query','POST',{page_size:100,sorts:H&&dt?[{property:dt[0],direction:'ascending'}]:[{timestamp:'created_time',direction:'descending'}]});
+        const items=q.results.map(p=>{const pp=p.properties;return{id:p.id,t:pp[tp].title.map(x=>x.plain_text).join('')||'Untitled',due:dt&&pp[dt[0]].date?pp[dt[0]].date.start:'',subj:sj?sv(pp[sj[0]]):'',d:kind==='cb'?!!pp[cp].checkbox:kind==='st'?!!(pp[cp].status&&doneIds.includes(pp[cp].status.id)):false}});
         return{id,title:m.title.map(x=>x.plain_text).join('')||'Database',tp,dp:dt?dt[0]:null,kind,cp,done,todo,items};
       }));
-      err='';
+      err=warn.join(' ');
     }catch(e){err=e.message+'. Check the proxy, token and that the database is shared with your integration.'}
     draw();
   }
@@ -429,11 +456,10 @@ function listWidget(key,title,dbKey,dated){
   }
   inp.onkeydown=async e=>{
     if(e.key!=='Enter'||!inp.value.trim())return;
-    const t=inp.value.trim(),due=dd.value;inp.value='';dd.value='';
-    if(!cfg()){const L=S.loc[key];L.push({t,d:0,due});if(dated)L.sort((x,y)=>(x.due||'9')<(y.due||'9')?-1:1);save();draw();return}
+    const t=inp.value.trim();inp.value='';
+    if(!cfg()){S.loc[key].push({t,d:0});save();draw();return}
     const db=DB[sel.hidden?0:+sel.value];if(!db)return;
-    const pr={[db.tp]:{title:[{text:{content:t}}]}};if(due&&db.dp)pr[db.dp]={date:{start:due}};
-    try{await nf('/v1/pages','POST',{parent:{database_id:db.id},properties:pr});await load();if(due&&!db.dp){err='That database has no date property, so the date was not saved.';draw()}}catch(x){err=x.message;draw()}
+    try{await nf('/v1/pages','POST',{parent:{database_id:db.id},properties:{[db.tp]:{title:[{text:{content:t}}]}}});await load()}catch(x){err=x.message;draw()}
   };
   el.load=load;load();setInterval(load,120000);
   return el;
@@ -451,6 +477,37 @@ function layout(){
   });
 }
 layout();
+
+/* narrow layout: cards start as a stacked deck and fan out as you scroll */
+const narrow=matchMedia('(max-width:719px)');
+function stackFx(){
+  const box=$('#widgets'),kids=[...box.children],se=document.scrollingElement,N=kids.length;
+  const on=narrow.matches&&!document.body.classList.contains('idle');
+  const can=se.scrollHeight-se.clientHeight>40;
+  const p=on&&can?Math.min(1,Math.max(0,se.scrollTop/(innerHeight*.45))):1;
+  const reset=k=>{k.style.transform='';k.style.pointerEvents='';k.style.clipPath=''};
+  if(p>=1||!N){kids.forEach(reset);return}
+  const V=innerHeight,wTop=box.getBoundingClientRect().top+se.scrollTop;
+  /* a stacked card shows only its heading strip */
+  const strip=el=>{const hd=el.querySelector('h2');return hd&&hd.offsetHeight?parseFloat(getComputedStyle(el).paddingTop)+hd.offsetHeight+10:48};
+  const S=Math.max(40,Math.min(70,...kids.map(strip))),peek=S*.92;
+  /* how many leading cards stay fully visible: as many as fit with room left for the deck strips */
+  let k=1;
+  for(let c=N;c>=1;c--){const l=kids[c-1];if(wTop+l.offsetTop+l.offsetHeight+16+(N-c)*peek<=V){k=c;break}}
+  if(k>=N){kids.forEach(reset);return}
+  const lead=kids[k-1],base=lead.offsetTop+lead.offsetHeight+16;
+  kids.forEach((el,i)=>{
+    if(i<k){reset(el);return}
+    el.style.transformOrigin='50% 0';
+    el.style.transform='translateY('+((1-p)*(base+(i-k)*peek-el.offsetTop))+'px) scale('+(1-(N-1-i)*.035*(1-p))+')';
+    el.style.clipPath='inset(0 0 '+Math.max(0,(el.offsetHeight-S)*(1-p))+'px 0 round 30px)';
+    el.style.pointerEvents=p<.5&&i<N-1?'none':'';
+  });
+}
+addEventListener('scroll',stackFx,{passive:true});addEventListener('resize',stackFx);
+new ResizeObserver(stackFx).observe($('#widgets'));
+new MutationObserver(stackFx).observe(document.body,{attributes:true,attributeFilter:['class']});
+stackFx();
 
 /* presence */
 let active=false,last=0;
@@ -508,7 +565,7 @@ function drawOrder(){
 $('#gear').onclick=()=>{
   $('#cam-on').checked=!!S.cam;$('#sens').value=S.sens;$('#idle').value=S.idle;$('#h24').checked=!!S.h24;
   $('#lat').value=S.lat;$('#lon').value=S.lon;$('#arrive').value=S.arrive;$('#leave').value=S.leave;
-  $('#proxy').value=S.proxy;$('#token').value=S.token;$('#dbs').value=S.dbs;$('#hw').value=S.hw;
+  $('#proxy').value=S.proxy;$('#token').value=S.token;$('#dbs').value=S.dbs;$('#hw').value=S.hw;$('#hwDue').value=S.hwDue;$('#hwSubj').value=S.hwSubj;$('#hwDone').value=S.hwDone;$('#hwStyle').value=S.hwStyle;$('#hwShowDone').checked=!!S.hwShowDone;
   $('#wall').value=S.wall;drawOrder();$('#dlg').showModal();
 };
 $('#geo').onclick=()=>navigator.geolocation.getCurrentPosition(p=>{$('#lat').value=p.coords.latitude.toFixed(3);$('#lon').value=p.coords.longitude.toFixed(3)},()=>msg('Location unavailable. Enter it by hand.'));
@@ -516,7 +573,7 @@ $('#full').onclick=()=>document.documentElement.requestFullscreen&&document.docu
 $('#close').onclick=()=>{
   S.cam=$('#cam-on').checked?1:0;S.sens=+$('#sens').value;S.idle=+$('#idle').value||45;S.h24=$('#h24').checked?1:0;
   S.lat=$('#lat').value.trim();S.lon=$('#lon').value.trim();S.arrive=$('#arrive').value.trim();S.leave=$('#leave').value.trim();
-  S.wall=$('#wall').value;setWall();S.proxy=$('#proxy').value.trim();S.token=$('#token').value.trim();S.dbs=$('#dbs').value;S.hw=$('#hw').value;
+  S.wall=$('#wall').value;setWall();S.proxy=$('#proxy').value.trim();S.token=$('#token').value.trim();S.dbs=$('#dbs').value;S.hw=$('#hw').value;S.hwDue=$('#hwDue').value.trim();S.hwSubj=$('#hwSubj').value.trim();S.hwDone=$('#hwDone').value.trim();S.hwStyle=$('#hwStyle').value;S.hwShowDone=$('#hwShowDone').checked?1:0;
   save();$('#dlg').close();tick();
   ['weather','tasks','homework'].forEach(k=>W[k]&&W[k].load());
   startCam();last=Date.now();
