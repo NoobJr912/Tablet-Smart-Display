@@ -98,6 +98,24 @@ body.idle .widgets{height:0;margin:0;overflow:hidden}
 .timer .row{justify-content:center}
 dialog select{background:none;border:0;color:var(--mute);font-size:16px;outline:0;text-align:right}
 dialog select option{color:#111}
+
+/* sticky Done, stacked compact clock and weather, clear of the settings button */
+dialog{padding-bottom:0}
+.foot{position:sticky;bottom:0;margin-top:14px;padding:14px 0 3vmin;background:rgba(28,28,30,.96);justify-content:flex-end;z-index:2}
+body:not(.idle) main{padding-top:max(12vmin,calc(env(safe-area-inset-top) + 9vmin))}
+.stack{display:flex;flex-direction:column;gap:2.4vmin}
+.stack .card{min-height:0;padding:2vmin 2.8vmin;border-radius:28px}
+.stack .card h2{display:none}
+.stack .clk{display:flex;align-items:center;gap:2.6vmin;text-align:left}
+.stack .clk svg{width:13vmin;min-width:84px;margin:0;flex:none}
+.stack .clk .dig{font-size:5.4vmin;margin-top:0;line-height:1}
+.stack .clk .sub{margin-top:.6vmin;font-size:2.2vmin}
+.stack .wx{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:2.4vmin;align-items:center}
+.stack .wx .wxrow{grid-row:1/3;gap:1.6vmin}
+.stack .wx .wxrow .ic svg{width:9vmin;height:9vmin;min-width:60px;min-height:60px}
+.stack .wx .big{font-size:7vmin}
+.stack .wx .sub{margin-top:0;font-size:2.2vmin;grid-column:2}
+.stack .wx .hl{grid-column:2}
 </style>
 </head>
 <body data-phase="day" class="idle">
@@ -137,7 +155,7 @@ dialog select option{color:#111}
   <small>Optional. Webhook URLs (for example from Home Assistant) called when someone arrives or leaves. The time of day is sent with each call.</small>
   <label>On arrival <input type="url" id="arrive" placeholder="https://..."></label>
   <label>On leaving <input type="url" id="leave" placeholder="https://..."></label>
-  <div class="row"><button id="full">Full screen</button><button id="close" class="on">Done</button></div>
+  <div class="row foot"><button id="full">Full screen</button><button id="close" class="on">Done</button></div>
 </dialog>
 
 <script>
@@ -225,7 +243,7 @@ function wxIcon(c,day){
   return `<svg viewBox="0 0 64 64">${b}</svg>`;
 }
 function weatherWidget(){
-  const el=document.createElement('div');el.className='card';
+  const el=document.createElement('div');el.className='card wx';
   el.innerHTML='<h2>Weather</h2><div class="wxrow"><div class="ic"></div><div class="big">--</div></div><div class="sub"></div><div class="sub hl"></div>';
   const wx=c=>c==0?'Clear':c<3?'Partly cloudy':c<4?'Cloudy':c<50?'Fog':c<60?'Drizzle':c<70?'Rain':c<80?'Snow':c<90?'Showers':'Thunderstorm';
   el.load=async()=>{
@@ -353,7 +371,14 @@ function listWidget(key,title,dbKey,dated){
 const MAKE={clock:clockWidget,weather:weatherWidget,timer:timerWidget,tasks:()=>listWidget('tasks','Tasks','dbs',false),homework:()=>listWidget('homework','Homework','hw',true)};
 function layout(){
   const box=$('#widgets');box.innerHTML='';
-  S.order.forEach(id=>{if(!S.on[id]||!MAKE[id])return;W[id]=W[id]||MAKE[id]();box.appendChild(W[id])});
+  const vis=S.order.filter(id=>S.on[id]&&MAKE[id]);
+  vis.forEach(id=>W[id]=W[id]||MAKE[id]());
+  const pair=vis.includes('clock')&&vis.includes('weather');
+  let st=null;
+  vis.forEach(id=>{
+    if(pair&&(id==='clock'||id==='weather')){if(!st){st=document.createElement('div');st.className='stack';box.appendChild(st)}st.appendChild(W[id])}
+    else box.appendChild(W[id]);
+  });
 }
 layout();
 
