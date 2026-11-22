@@ -154,6 +154,29 @@ body.idle .widgets{flex:none}
 .list{display:flex;flex-direction:column;max-height:calc(100dvh - 21vmin)}
 .list h2,.list .add,.list .err{flex:none}
 .list .lists{flex:1 1 auto;min-height:0;max-height:min(44vmin,360px)}
+
+/* clock + weather stack fills the height of its neighbour, time sits under the face */
+.stack .card{flex:1 1 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:clamp(2px,1.2cqw,8px)}
+.stack .clk svg{flex:1 1 0;min-height:clamp(96px,24cqw,150px);width:100%;height:auto;max-width:none}
+.stack .clk .txt{flex:none;width:100%}
+.stack .clk .dig{font-size:clamp(24px,10cqw,46px)}
+.stack .wx .wxrow{justify-content:center;grid-row:auto}
+.stack .wx .sub{grid-column:auto}
+.stack .wx .wxrow .ic svg{width:clamp(44px,15cqw,72px);height:clamp(44px,15cqw,72px)}
+.stack .wx .big{font-size:clamp(28px,11cqw,54px)}
+/* timer scrolls inside its card if it cannot fit */
+.timer{max-height:calc(100dvh - 21vmin);overflow-y:auto;overflow-x:hidden;scrollbar-width:none}
+.timer::-webkit-scrollbar{display:none}
+.card{min-height:min-content}
+/* narrow or tall windows: one column and the whole page scrolls */
+@media (max-width:719px){
+  body:not(.idle){overflow-y:auto;overflow-x:hidden}
+  body:not(.idle) main{height:auto;min-height:100dvh}
+  body:not(.idle) .widgets{flex:none;overflow:visible;padding-bottom:6vmin}
+  .timer{max-height:none;overflow:visible}
+  .list{max-height:none}
+  .list .lists{max-height:min(60vw,420px)}
+}
 </style>
 </head>
 <body data-phase="day" class="idle">
