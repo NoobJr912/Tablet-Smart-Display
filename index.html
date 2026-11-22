@@ -532,9 +532,10 @@ function stackFx(){
   /* a stacked card shows only its heading strip */
   const strip=el=>{const hd=el.querySelector('h2');return hd&&hd.offsetHeight?parseFloat(getComputedStyle(el).paddingTop)+hd.offsetHeight+10:48};
   const S=Math.max(40,Math.min(70,...kids.map(strip))),peek=S*.92;
-  /* leading rows stay fully visible: as many as fit with room left for the deck strips */
-  let kr=1;
-  for(let c=R;c>=1;c--){if(bot[c-1]+16+(R-c)*peek<=avail){kr=c;break}}
+  /* a row stays unstacked while at least 75% of it is on screen; only rows that would be mostly hidden join the deck */
+  let kr=R;
+  for(let r=0;r<R;r++){const vis=Math.min(1,Math.max(0,(avail-tops[r])/(bot[r]-tops[r])));if(vis<.75){kr=r;break}}
+  if(kr<1)kr=1;
   if(kr>=R){kids.forEach(reset);return}
   const base=bot[kr-1]+16;
   kids.forEach(el=>{
