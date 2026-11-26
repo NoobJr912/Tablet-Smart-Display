@@ -2,7 +2,7 @@
 (function(){
 const API='https://api.spotify.com/v1',AUTH='https://accounts.spotify.com';
 const SCOPE='user-read-playback-state user-modify-playback-state user-read-currently-playing';
-if(!S.spId)S.spId='574816147a274f7782f4ccc65fb8419f';
+if(typeof S.spId!=='string')S.spId='';
 const redirect=()=>location.origin+location.pathname;
 const getT=()=>{try{return JSON.parse(localStorage.getItem('sp')||'null')}catch(e){return null}};
 const setT=t=>{try{t?localStorage.setItem('sp',JSON.stringify(t)):localStorage.removeItem('sp')}catch(e){}};
@@ -166,9 +166,10 @@ if(!S.order.includes('spotify')){const i=S.order.indexOf('timer');S.order.splice
 save();layout();
 
 /* settings section */
-$('#dlg .foot').insertAdjacentHTML('beforebegin','<h3>Spotify</h3><small>Create an app at developer.spotify.com/dashboard, add the Redirect URI below to it exactly, then tap Connect. Showing what’s playing is free; the buttons need Premium.</small><label>Client ID <input type="text" id="spId" placeholder="Spotify client ID"></label><small>Redirect URI (tap to select)</small><small id="spRedir"></small><div class="row"><button id="spConn">Connect Spotify</button><button id="spOut">Disconnect</button></div>');
+$('#dlg .foot').insertAdjacentHTML('beforebegin','<h3>Spotify</h3><small>Create an app at developer.spotify.com/dashboard, add the Redirect URI below to it exactly, then tap Connect. Showing what’s playing is free; the buttons need Premium.</small><label>Client ID <input type="text" id="spId" placeholder="Paste your client ID"></label><small>Redirect URI (tap to select)</small><small id="spRedir"></small><div class="row"><button id="spConn">Connect Spotify</button><button id="spOut">Disconnect</button></div>');
 $('#gear').addEventListener('click',()=>{$('#spId').value=S.spId||'';$('#spRedir').textContent=redirect()});
-$('#close').addEventListener('click',()=>{S.spId=$('#spId').value.trim();save()});
-$('#spConn').onclick=()=>{S.spId=$('#spId').value.trim();save();startAuth()};
+function setId(v){v=v.trim();if(v!==S.spId){S.spId=v;setT(null);authErr='';if(W.spotify)W.spotify.refresh()}save()}
+$('#close').addEventListener('click',()=>setId($('#spId').value));
+$('#spConn').onclick=()=>{setId($('#spId').value);startAuth()};
 $('#spOut').onclick=()=>{setT(null);authErr='';if(W.spotify)W.spotify.refresh();msg('Spotify disconnected.');setTimeout(()=>msg(''),2500)};
 })();
