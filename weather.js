@@ -1,5 +1,3 @@
-Weather
- · JS
 /* Weather detail view: tap the weather widget for hourly + 7-day forecast and other places.
    Add <script src="weather.js"></script> after the other scripts. Uses Open-Meteo (no key). */
 (()=>{
@@ -62,7 +60,7 @@ const tm=t=>{const h=+t.slice(11,13);return S.h24?t.slice(11,16):((h%12||12)+':'
 const hr=t=>{const h=+t.slice(11,13);return S.h24?f2(h):((h%12||12)+(h<12?'am':'pm'))};
 const dir=d=>['N','NE','E','SE','S','SW','W','NW'][Math.round(d/45)%8];
 let cur=0,cache={},tok=0;
- 
+
 function chips(){
   const c=q('.wxc');c.innerHTML='';
   locs().forEach((l,i)=>{const b=document.createElement('button');b.textContent=l.name;if(i===cur)b.className='on';b.onclick=()=>{cur=i;draw()};c.appendChild(b)});
@@ -127,8 +125,13 @@ q('.wxq input').oninput=e=>{
       });
     }).catch(()=>{r.innerHTML='<div class="d" style="color:var(--red);padding:10px 8px">Search failed. Check the connection.</div>'}),350);
 };
-document.addEventListener('click',e=>{if(!document.body.classList.contains('idle')&&e.target.closest('.card.wx')&&o.hidden)open()});
+window.wxOpen=open;
+document.addEventListener('click',e=>{
+  const t=e.target;
+  if(o.hidden&&t&&t.closest&&t.closest('.card.wx')){
+    try{open()}catch(err){const m=document.getElementById('msg');if(m)m.textContent='Weather view error: '+err.message}
+  }
+},true);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!o.hidden)close()});
 setInterval(()=>{if(!o.hidden&&typeof wake==='function')wake()},5000);
 })();
- 
