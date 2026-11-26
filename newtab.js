@@ -50,11 +50,12 @@ function searchWidget(){
 /* bookmarks widget */
 const parse=txt=>txt.split('\n').map(l=>{
   l=l.trim();if(!l)return null;
-  let n='',u=l;const i=l.lastIndexOf('|');
-  if(i>-1){n=l.slice(0,i).trim();u=l.slice(i+1).trim()}
+  const p=l.split('|').map(x=>x.trim());
+  let n='',u=p[0],ic='';
+  if(p.length>=3){n=p[0];u=p[1];ic=p[2]}else if(p.length===2){n=p[0];u=p[1]}
   if(!/^[a-z][a-z0-9+.-]*:/i.test(u))u='https://'+u;
   try{const o=new URL(u);if(!/^https?:$/.test(o.protocol))return null;
-    return{n:n||o.hostname.replace(/^www\./,''),u:o.href,h:o.hostname}}catch(e){return null}
+    return{n:n||o.hostname.replace(/^www\./,''),u:o.href,h:o.hostname,o:o.origin,ic:/^https:\/\//i.test(ic)?ic:''}}catch(e){return null}
 }).filter(Boolean);
 function bookmarksWidget(){
   const el=document.createElement('div');el.className='card bm';
@@ -70,7 +71,7 @@ function bookmarksWidget(){
       const ic=document.createElement('div');ic.className='ic';
       const letter=()=>{ic.textContent=(b.n[0]||'?').toUpperCase()};
       const im=new Image();im.alt='';
-      const srcs=['https://www.google.com/s2/favicons?sz=64&domain='+encodeURIComponent(b.h),'https://icons.duckduckgo.com/ip3/'+b.h+'.ico','https://'+b.h+'/favicon.ico'];let k=0;
+      const srcs=[...(b.ic?[b.ic]:[]),'https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&size=128&url='+encodeURIComponent(b.o),'https://www.google.com/s2/favicons?sz=128&domain_url='+encodeURIComponent(b.o),'https://icons.duckduckgo.com/ip3/'+b.h+'.ico'];let k=0;
       im.onerror=()=>{if(++k<srcs.length)im.src=srcs[k];else{im.remove();letter()}};
       im.src=srcs[0];
       a.onclick=e=>{if(e.ctrlKey||e.metaKey||e.shiftKey||e.altKey||e.button)return;e.preventDefault();nav(b.u)};
@@ -95,7 +96,7 @@ foot.insertAdjacentHTML('beforebegin',`
 <h3>Search and bookmarks</h3>
 <label>Search engine <select id="engine">${Object.entries(ENG).map(([k,v])=>`<option value="${k}">${v[0]}</option>`).join('')}</select></label>
 <label>Stay on the full display (never fall back to the clock) <input type="checkbox" id="stay"></label>
-<small>Bookmarks: one per line as <b>Name | address</b>. The name is optional.</small>
+<small>Bookmarks: one per line as <b>Name | address</b>, or <b>Name | address | icon image address</b> to choose the icon yourself. The name is optional.</small>
 <textarea id="bm" style="height:120px" spellcheck="false" placeholder="Gmail | mail.google.com&#10;github.com"></textarea>
 <label>Import a bookmarks file <input type="file" id="bmfile" accept=".html,.htm"></label>
 <small id="bmnote">In your browser, export bookmarks as an HTML file, then choose it here. Bookmarks-bar items are imported when found; edit the list afterwards.</small>`);
