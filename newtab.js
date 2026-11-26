@@ -116,4 +116,29 @@ $b('#close').addEventListener('click',()=>{
 const _set=setActive;
 setActive=function(a){if(!a&&S.stay)return;_set(a)};
 if(S.stay){wake();const i=W.search&&W.search.querySelector('input');if(i)i.focus()}
+
+/* settings button: round icon, bottom right */
+const gear=document.querySelector('#gear');
+gear.innerHTML='<svg viewBox="0 0 24 24" width="55%" height="55%" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>';
+gear.setAttribute('aria-label','Settings');gear.title='Settings';
+const gs=document.createElement('style');
+gs.textContent=`#gear{top:auto;right:max(2.5vmin,env(safe-area-inset-right));bottom:max(2.5vmin,env(safe-area-inset-bottom));width:clamp(40px,6vmin,54px);height:clamp(40px,6vmin,54px);padding:0;display:grid;place-items:center;border-radius:50%;background:rgba(255,255,255,.12);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);color:var(--mute);z-index:5}
+body:not(.idle) main{padding-top:max(4vmin,env(safe-area-inset-top));padding-bottom:max(9vmin,60px)}`;
+document.head.appendChild(gs);
+
+/* if Notion fetches fail (for example the network is not ready when a new tab opens), retry, and refresh when the tab is shown again */
+const BAD=/failed to fetch|load failed|network/i;
+async function heal(k){
+  for(let n=0;n<5;n++){
+    await new Promise(r=>setTimeout(r,2500*(n+1)));
+    const w=W[k];if(!w||!w.load)return;
+    const e=w.querySelector('.err');
+    if(!e||!BAD.test(e.textContent))return;
+    await w.load();
+  }
+}
+['tasks','homework'].forEach(heal);
+const refresh=()=>['tasks','homework'].forEach(k=>{if(W[k]&&W[k].load)W[k].load().then(()=>heal(k))});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh()});
+addEventListener('online',refresh);
 })();
