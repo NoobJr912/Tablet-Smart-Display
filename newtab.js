@@ -1,6 +1,13 @@
 /* newtab.js: adds a Search widget and a Bookmarks widget to the smart display.
    Load it last in index.html:  <script src="newtab.js"></script> */
 (function(){
+/* open an address in the whole tab, even when this page sits inside the new-tab frame */
+const nav=u=>{
+  if(window.top!==window){
+    try{window.top.postMessage({sdNav:u},'*')}catch(e){}
+    try{window.top.location.href=u}catch(e){}
+  }else location.href=u;
+};
 const ENG={google:['Google','https://www.google.com/search?q='],ddg:['DuckDuckGo','https://duckduckgo.com/?q='],bing:['Bing','https://www.bing.com/search?q='],brave:['Brave','https://search.brave.com/search?q='],ecosia:['Ecosia','https://www.ecosia.org/search?q=']};
 if(!ENG[S.engine])S.engine='google';
 if(typeof S.bm!=='string')S.bm='';
@@ -29,7 +36,6 @@ function searchWidget(){
   el.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><line x1="15.5" y1="15.5" x2="21" y2="21"/></svg><input type="text" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Search">';
   const inp=el.querySelector('input');
   el.sync=()=>{inp.placeholder='Search '+ENG[S.engine][0]+' or enter an address'};
-  const nav=u=>{try{(window.top||window).location.href=u}catch(e){location.href=u}};
   const go=v=>{
     v=v.trim();if(!v)return;
     if(/^https?:\/\//i.test(v))nav(v);
@@ -63,9 +69,11 @@ function bookmarksWidget(){
       const a=document.createElement('a');a.href=b.u;a.target='_top';
       const ic=document.createElement('div');ic.className='ic';
       const letter=()=>{ic.textContent=(b.n[0]||'?').toUpperCase()};
-      const im=new Image();im.alt='';im.loading='lazy';
-      im.onerror=()=>{im.remove();letter()};
-      im.src='https://www.google.com/s2/favicons?sz=64&domain='+encodeURIComponent(b.h);
+      const im=new Image();im.alt='';
+      const srcs=['https://www.google.com/s2/favicons?sz=64&domain='+encodeURIComponent(b.h),'https://icons.duckduckgo.com/ip3/'+b.h+'.ico','https://'+b.h+'/favicon.ico'];let k=0;
+      im.onerror=()=>{if(++k<srcs.length)im.src=srcs[k];else{im.remove();letter()}};
+      im.src=srcs[0];
+      a.onclick=e=>{if(e.ctrlKey||e.metaKey||e.shiftKey||e.altKey||e.button)return;e.preventDefault();nav(b.u)};
       ic.appendChild(im);
       const n=document.createElement('span');n.className='n';n.textContent=b.n;
       a.append(ic,n);g.appendChild(a);
