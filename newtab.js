@@ -29,11 +29,12 @@ function searchWidget(){
   el.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><line x1="15.5" y1="15.5" x2="21" y2="21"/></svg><input type="text" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Search">';
   const inp=el.querySelector('input');
   el.sync=()=>{inp.placeholder='Search '+ENG[S.engine][0]+' or enter an address'};
+  const nav=u=>{try{(window.top||window).location.href=u}catch(e){location.href=u}};
   const go=v=>{
     v=v.trim();if(!v)return;
-    if(/^https?:\/\//i.test(v))location.href=v;
-    else if(!/\s/.test(v)&&/^[^\s\/]+\.[a-z]{2,}(:\d+)?([\/?#]\S*)?$/i.test(v))location.href='https://'+v;
-    else location.href=ENG[S.engine][1]+encodeURIComponent(v);
+    if(/^https?:\/\//i.test(v))nav(v);
+    else if(!/\s/.test(v)&&/^[^\s\/]+\.[a-z]{2,}(:\d+)?([\/?#]\S*)?$/i.test(v))nav('https://'+v);
+    else nav(ENG[S.engine][1]+encodeURIComponent(v));
   };
   inp.onkeydown=e=>{if(e.key==='Enter')go(inp.value);if(e.key==='Escape')inp.value=''};
   el.sync();
@@ -59,7 +60,7 @@ function bookmarksWidget(){
     if(!list.length){g.style.display='block';g.innerHTML='<div class="sub">Add bookmarks in Settings.</div>';return}
     g.style.display='';
     list.forEach(b=>{
-      const a=document.createElement('a');a.href=b.u;
+      const a=document.createElement('a');a.href=b.u;a.target='_top';
       const ic=document.createElement('div');ic.className='ic';
       const letter=()=>{ic.textContent=(b.n[0]||'?').toUpperCase()};
       const im=new Image();im.alt='';im.loading='lazy';
