@@ -2,8 +2,8 @@
    Each one is switched on or off in Settings > Widgets (all start switched off) and can be reordered there.
    They also stay in the weather menu. Tapping one opens the weather menu.
    Add <script src="wxtiles.js"></script> AFTER weather.js. Uses the shared forecast request from weather.js. */
-(()=>{
-if(!window.wxTiles)return;
+(()=>{try{
+if(!window.wxTiles){msg('Weather tiles: weather.js is out of date. Use weather.js?v=4 and hard refresh.');return}
 const style=document.createElement('style');
 style.textContent=`
 .card.wtw{cursor:pointer}
@@ -64,4 +64,5 @@ window.wxRefresh=()=>ids.forEach(id=>W[id]&&W[id].load&&W[id].load());
 setInterval(window.wxRefresh,5*60*1000+2000);
 const done=document.getElementById('close'),prev=done&&done.onclick;
 if(done)done.onclick=function(){if(prev)prev.apply(this,arguments);window.wxRefresh()};
+}catch(e){msg('Weather tiles error: '+e.message)}
 })();
