@@ -1,5 +1,6 @@
 /* Weather detail view: tap the weather widget for hourly + 7-day forecast and other places.
-   Add <script src="weather.js"></script> after the other scripts. Uses Open-Meteo (no key). */
+   Add <script src="weather.js"></script> after the other scripts. Uses Open-Meteo (no key).
+   v4: the bottom tiles are now shared functions (window.wxTiles) so wxtiles.js can show each one as its own widget. */
 (()=>{
 const css=`
 .card.wx{cursor:pointer}
@@ -81,7 +82,19 @@ const f2=n=>String(n).padStart(2,'0');
 const tm=t=>{const h=+t.slice(11,13);return S.h24?t.slice(11,16):((h%12||12)+':'+t.slice(14,16)+(h<12?' am':' pm'))};
 const hr=t=>{const h=+t.slice(11,13);return S.h24?f2(h):((h%12||12)+(h<12?'am':'pm'))};
 const dir=d=>['N','NE','E','SE','S','SW','W','NW'][Math.round(d/45)%8];
-let cur=0,cache={},tok=0;
+let cur=0,cache={},tok=0,inflight={};
+
+/* one shared forecast request per place, cached for 5 minutes, used by the menu and by the tile widgets */
+const ckey=(lat,lon)=>(+lat)+','+(+lon);
+const fresh=(lat,lon)=>{const c=cache[ckey(lat,lon)];return c&&Date.now()-c.at<3e5?c.j:null};
+function getJ(lat,lon){
+  const k=ckey(lat,lon),f=fresh(lat,lon);
+  if(f)return Promise.resolve(f);
+  if(inflight[k])return inflight[k];
+  return inflight[k]=fetch('https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+'&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,is_day,wind_speed_10m,wind_gusts_10m,wind_direction_10m,surface_pressure&hourly=temperature_2m,weather_code,precipitation_probability,is_day,uv_index&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset,uv_index_max&wind_speed_unit=mph&forecast_days=7&timezone=auto')
+    .then(r=>r.json()).then(j=>{if(!j.current)throw 0;return j})
+    .then(j=>{cache[k]={at:Date.now(),j};delete inflight[k];return j},e=>{delete inflight[k];throw e});
+}
 
 function chips(){
   const c=q('.wxc');c.innerHTML='';
@@ -91,16 +104,16 @@ function draw(){
   chips();
   const L=locs(),b=q('.wxb');
   if(!L.length){b.innerHTML='<div class="wp"><div class="d" style="color:var(--mute)">No places yet. Use Add place to search, or set your location in Settings.</div></div>';q('.wxq').hidden=false;return}
-  const l=L[cur],key=l.lat+','+l.lon,my=++tok,c=cache[key];
-  if(c&&Date.now()-c.at<6e5){render(l,c.j);return}
+  const l=L[cur],my=++tok,c=fresh(l.lat,l.lon);
+  if(c){render(l,c);return}
   b.innerHTML='<div class="wp"><div class="d" style="color:var(--mute)">Loading forecast…</div></div>';
-  fetch('https://api.open-meteo.com/v1/forecast?latitude='+l.lat+'&longitude='+l.lon+'&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,is_day,wind_speed_10m,wind_gusts_10m,wind_direction_10m,surface_pressure&hourly=temperature_2m,weather_code,precipitation_probability,is_day,uv_index&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset,uv_index_max&wind_speed_unit=mph&forecast_days=7&timezone=auto')
-    .then(r=>r.json()).then(j=>{if(!j.current)throw 0;cache[key]={at:Date.now(),j};if(my===tok)render(l,j)})
+  getJ(l.lat,l.lon).then(j=>{if(my===tok)render(l,j)})
     .catch(()=>{if(my===tok)b.innerHTML='<div class="wp"><div class="d" style="color:var(--red)">Can’t reach the weather service. Check the connection and tap the place again.</div></div>'});
 }
 const lvl=u=>u<3?'Low':u<6?'Moderate':u<8?'High':u<11?'Very high':'Extreme';
 const uvc=u=>u<3?'#30d158':u<6?'#ffd60a':u<8?'#ff9f0a':u<11?'#ff453a':'#bf5af2';
 const mins=t=>+t.slice(11,13)*60+ +t.slice(14,16);
+const idx=(c,h)=>Math.max(0,h.time.findIndex(t=>t>=c.time.slice(0,13)+':00'));
 function insight(c,h,i0){
   const R=Math.round,n=Math.min(24,h.time.length-i0),P=k=>h.precipitation_probability[i0+k],T=k=>h.temperature_2m[i0+k];
   const kind=k=>{const w=h.weather_code[i0+k];return w>=95?'Thunderstorms':(w>=71&&w<=77)||w==85||w==86?'Snow':'Rain'};
@@ -135,9 +148,25 @@ function windTile(c){
   const R=Math.round;
   return '<div class="wt"><span>Wind</span><div class="wwd"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="44" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="2"/><g font-size="11" fill="#fff" text-anchor="middle" style="font-family:var(--font)"><text x="50" y="17">N</text><text x="50" y="92">S</text><text x="12" y="54">W</text><text x="88" y="54">E</text></g><g transform="rotate('+(c.wind_direction_10m+180)+' 50 50)"><line x1="50" y1="66" x2="50" y2="34" stroke="#64d2ff" stroke-width="4" stroke-linecap="round"/><polygon points="50,26 42,40 58,40" fill="#64d2ff"/></g></svg><div><b style="font-size:clamp(24px,4vmin,34px);font-weight:300">'+R(c.wind_speed_10m)+' mph</b><em>From the '+dir(c.wind_direction_10m)+'</em><em>Gusts up to '+R(c.wind_gusts_10m)+' mph</em></div></div></div>';
 }
+function feelsTile(c){
+  const df=c.apparent_temperature-c.temperature_2m;
+  return '<div class="wt"><span>Feels like</span><b>'+Math.round(c.apparent_temperature)+'°</b><em>'+(df<=-2?'Colder than the air temperature':df>=2?'Warmer than the air temperature':'Close to the air temperature')+'</em></div>';
+}
+const humTile=c=>'<div class="wt"><span>Humidity</span><b>'+Math.round(c.relative_humidity_2m)+'%</b></div>';
+const presTile=c=>'<div class="wt"><span>Pressure</span><b>'+Math.round(c.surface_pressure)+' hPa</b></div>';
+
+/* used by wxtiles.js to show each tile as its own widget */
+window.wxTiles={
+  load:getJ,
+  html:(kind,j)=>{
+    const c=j.current,h=j.hourly,d=j.daily;
+    return kind==='uv'?uvTile(c,h,idx(c,h)):kind==='sun'?sunTile(c,d):kind==='wind'?windTile(c):kind==='feels'?feelsTile(c):kind==='humidity'?humTile(c):presTile(c);
+  }
+};
+
 function render(l,j){
   const c=j.current,d=j.daily,h=j.hourly,R=Math.round;
-  const i0=Math.max(0,h.time.findIndex(t=>t>=c.time.slice(0,13)+':00'));
+  const i0=idx(c,h);
   let hh='';
   for(let i=i0;i<i0+24&&i<h.time.length;i++)hh+='<div class="wxe">'+(i===i0?'Now':hr(h.time[i]))+wxIcon(h.weather_code[i],h.is_day[i])+'<i>'+(h.precipitation_probability[i]>=20?h.precipitation_probability[i]+'%':'')+'</i>'+R(h.temperature_2m[i])+'°</div>';
   const mn=Math.min(...d.temperature_2m_min),mx=Math.max(...d.temperature_2m_max),sp=Math.max(1,mx-mn);
@@ -146,7 +175,7 @@ function render(l,j){
     const lo=d.temperature_2m_min[i],hi=d.temperature_2m_max[i],p=d.precipitation_probability_max[i];
     dd+='<div class="wxd"><span>'+(i?new Date(s+'T12:00').toLocaleDateString([],{weekday:'short'}):'Today')+'</span>'+wxIcon(d.weather_code[i],1)+'<span class="r">'+(p>=20?p+'%':'')+'</span><span class="lo">'+R(lo)+'°</span><div class="bar"><u style="left:'+((lo-mn)/sp*100)+'%;width:'+Math.max(4,(hi-lo)/sp*100)+'%"></u></div><span class="hi">'+R(hi)+'°</span></div>';
   });
-  const L=locs(),df=c.apparent_temperature-c.temperature_2m;
+  const L=locs();
   let act='';
   if(!isHome(l))act+='<button class="wxw">Show on widget</button>';
   else act+='<div class="d" style="margin-top:4px">Shown on widget</div>';
@@ -156,9 +185,9 @@ function render(l,j){
    +'<div class="wp"><h3>Next 24 hours</h3><div class="wxhr">'+hh+'</div></div>'
    +'<div class="wp"><h3>7-day forecast</h3>'+dd+'</div>'
    +'<div class="wtg">'+uvTile(c,h,i0)+sunTile(c,d)+windTile(c)+'</div>'
-   +'<div class="wtg2"><div class="wt"><span>Feels like</span><b>'+R(c.apparent_temperature)+'°</b><em>'+(df<=-2?'Colder than the air temperature':df>=2?'Warmer than the air temperature':'Close to the air temperature')+'</em></div><div class="wt"><span>Humidity</span><b>'+R(c.relative_humidity_2m)+'%</b></div><div class="wt"><span>Pressure</span><b>'+R(c.surface_pressure)+' hPa</b></div></div>';
+   +'<div class="wtg2">'+feelsTile(c)+humTile(c)+presTile(c)+'</div>';
   const w=q('.wxw'),rm=q('.wxd2');
-  if(w)w.onclick=()=>{S.lat=String(l.lat);S.lon=String(l.lon);S.wxName=l.name;save();W.weather&&W.weather.load&&W.weather.load();draw()};
+  if(w)w.onclick=()=>{S.lat=String(l.lat);S.lon=String(l.lon);S.wxName=l.name;save();W.weather&&W.weather.load&&W.weather.load();window.wxRefresh&&window.wxRefresh();draw()};
   if(rm)rm.onclick=()=>{L.splice(cur,1);cur=Math.max(0,L.findIndex(isHome));save();draw()};
 }
 function open(){
