@@ -224,8 +224,7 @@ body.idle .widgets{flex:none}
   <h3>Wallpaper</h3>
   <label>Style <select id="wall"><option value="shapes">Shapes</option><option value="rings">Rings</option><option value="waves">Waves</option><option value="glow">Soft glow</option><option value="black">Black</option></select></label>
   <h3>Notion</h3>
-  <small>Needs a proxy, because Notion blocks direct requests from web pages (see notion-proxy.js). Share each database with your Notion integration first. The token is saved only on this device.</small>
-  <label>Proxy URL <input type="url" id="proxy" placeholder="https://...workers.dev"></label>
+  <small>Create an internal integration in Notion, share each database with it, then paste its token below. The token is saved only on this device.</small>
   <label>Integration token <input type="password" id="token" placeholder="secret_..."></label>
   <small>Tasks databases: IDs or links, one per line</small>
   <textarea id="dbs"></textarea>
@@ -258,6 +257,8 @@ const NAMES={clock:'Clock',weather:'Weather',timer:'Timer and focus',tasks:'Task
 const DEF={wall:'shapes',order:['clock','weather','timer','tasks','homework'],on:{clock:1,weather:1,timer:1,tasks:1,homework:1},lat:'',lon:'',idle:45,sens:6,cam:1,h24:0,arrive:'',leave:'',loc:{tasks:[],homework:[]},proxy:'',token:'',dbs:'',hw:'',hwDue:'',hwSubj:'',hwDone:'',hwStyle:'rel',hwShowDone:1};
 let S=Object.assign({},DEF);
 try{Object.assign(S,JSON.parse(localStorage.getItem('sd')||'{}'))}catch(e){}
+/* the Cloudflare Worker that relays requests to Notion: always used, replace with your own URL */
+S.proxy='https://YOUR-WORKER.workers.dev';
 /* migrate older saved settings */
 if(Array.isArray(S.tasks)){S.loc=Object.assign({tasks:[],homework:[]},S.loc,{tasks:S.tasks});delete S.tasks}
 S.loc=Object.assign({tasks:[],homework:[]},S.loc);
@@ -440,12 +441,12 @@ function listWidget(key,title,dbKey,dated){
   };
   function draw(){
     lists.innerHTML='';eb.textContent=err;sel.hidden=true;
-    if(!cfg()&&dated){lists.innerHTML='<div class="sub">Add your Notion token, proxy and homework database in Settings.</div>';return}
+    if(!cfg()&&dated){lists.innerHTML='<div class="sub">Add your Notion token and homework database in Settings.</div>';return}
     if(!cfg()){
       const loc=S.loc[key],ul=document.createElement('ul');
       loc.forEach((t,i)=>{const li=row(t,()=>{t.d=!t.d;save();draw()});const x=document.createElement('button');x.textContent='×';x.setAttribute('aria-label','Remove');x.onclick=()=>{loc.splice(i,1);save();draw()};li.appendChild(x);ul.appendChild(li)});
       lists.appendChild(ul);
-      if(!loc.length)lists.insertAdjacentHTML('afterbegin','<div class="sub">Add a Notion token, proxy and database in Settings to sync. Until then this is a local list.</div>');
+      if(!loc.length)lists.insertAdjacentHTML('afterbegin','<div class="sub">Add a Notion token and database in Settings to sync. Until then this is a local list.</div>');
       return;
     }
     DB.forEach(db=>{
@@ -479,7 +480,7 @@ function listWidget(key,title,dbKey,dated){
         return{id,title:m.title.map(x=>x.plain_text).join('')||'Database',tp,dp:dt?dt[0]:null,kind,cp,done,todo,items};
       }));
       err=warn.join(' ');
-    }catch(e){err=e.message+'. Check the proxy, token and that the database is shared with your integration.'}
+    }catch(e){err=e.message+'. Check the token and that the database is shared with your integration.'}
     draw();
   }
   async function toggle(db,it){
@@ -608,7 +609,7 @@ function drawOrder(){
 $('#gear').onclick=()=>{
   $('#cam-on').checked=!!S.cam;$('#sens').value=S.sens;$('#idle').value=S.idle;$('#h24').checked=!!S.h24;
   $('#lat').value=S.lat;$('#lon').value=S.lon;$('#arrive').value=S.arrive;$('#leave').value=S.leave;
-  $('#proxy').value=S.proxy;$('#token').value=S.token;$('#dbs').value=S.dbs;$('#hw').value=S.hw;$('#hwDue').value=S.hwDue;$('#hwSubj').value=S.hwSubj;$('#hwDone').value=S.hwDone;$('#hwStyle').value=S.hwStyle;$('#hwShowDone').checked=!!S.hwShowDone;
+  $('#token').value=S.token;$('#dbs').value=S.dbs;$('#hw').value=S.hw;$('#hwDue').value=S.hwDue;$('#hwSubj').value=S.hwSubj;$('#hwDone').value=S.hwDone;$('#hwStyle').value=S.hwStyle;$('#hwShowDone').checked=!!S.hwShowDone;
   $('#wall').value=S.wall;drawOrder();$('#dlg').showModal();
 };
 $('#geo').onclick=()=>navigator.geolocation.getCurrentPosition(p=>{$('#lat').value=p.coords.latitude.toFixed(3);$('#lon').value=p.coords.longitude.toFixed(3)},()=>msg('Location unavailable. Enter it by hand.'));
@@ -616,7 +617,7 @@ $('#full').onclick=()=>document.documentElement.requestFullscreen&&document.docu
 $('#close').onclick=()=>{
   S.cam=$('#cam-on').checked?1:0;S.sens=+$('#sens').value;S.idle=+$('#idle').value||45;S.h24=$('#h24').checked?1:0;
   S.lat=$('#lat').value.trim();S.lon=$('#lon').value.trim();S.arrive=$('#arrive').value.trim();S.leave=$('#leave').value.trim();
-  S.wall=$('#wall').value;setWall();S.proxy=$('#proxy').value.trim();S.token=$('#token').value.trim();S.dbs=$('#dbs').value;S.hw=$('#hw').value;S.hwDue=$('#hwDue').value.trim();S.hwSubj=$('#hwSubj').value.trim();S.hwDone=$('#hwDone').value.trim();S.hwStyle=$('#hwStyle').value;S.hwShowDone=$('#hwShowDone').checked?1:0;
+  S.wall=$('#wall').value;setWall();S.token=$('#token').value.trim();S.dbs=$('#dbs').value;S.hw=$('#hw').value;S.hwDue=$('#hwDue').value.trim();S.hwSubj=$('#hwSubj').value.trim();S.hwDone=$('#hwDone').value.trim();S.hwStyle=$('#hwStyle').value;S.hwShowDone=$('#hwShowDone').checked?1:0;
   save();$('#dlg').close();tick();
   ['weather','tasks','homework'].forEach(k=>W[k]&&W[k].load());
   startCam();last=Date.now();
@@ -626,7 +627,7 @@ startCam();
  <script src="spotify.js"></script>
  <script src="tweaks.js"></script>
  <script src="weather.js?v=4"></script>
- <script src="wxtiles.js?v=2"></script>
+ <script src="wxtiles.js"></script>
  <script src="newtab.js"></script>
 </body>
 </html>
