@@ -1,4 +1,4 @@
-x/* Weather detail view: tap the weather widget for hourly + 7-day forecast and other places.
+/* Weather detail view: tap the weather widget for hourly + 7-day forecast and other places.
    Add <script src="weather.js"></script> after the other scripts. Uses Open-Meteo (no key). */
 (()=>{
 const css=`
