@@ -2,8 +2,11 @@
    Each one is switched on or off in Settings > Widgets (all start switched off) and can be reordered there.
    They also stay in the weather menu. Tapping one opens the weather menu.
    Add <script src="wxtiles.js"></script> AFTER weather.js. Uses the shared forecast request from weather.js. */
-(()=>{try{
-if(!window.wxTiles){msg('Weather tiles: weather.js is out of date. Use weather.js?v=4 and hard refresh.');return}
+(()=>{
+/* on-screen note for 8 seconds, so it cannot be wiped by the camera status message */
+const note=t=>{const d=document.createElement('div');d.textContent=t;d.style.cssText='position:fixed;left:50%;top:12px;transform:translateX(-50%);z-index:99;background:#0a84ff;color:#fff;padding:10px 18px;border-radius:14px;font:600 15px sans-serif;max-width:90vw;text-align:center';document.body.appendChild(d);setTimeout(()=>d.remove(),8000)};
+try{
+if(!window.wxTiles){note('Weather tiles: weather.js is out of date. Use weather.js?v=4 and hard refresh.');return}
 const style=document.createElement('style');
 style.textContent=`
 .card.wtw{cursor:pointer}
@@ -64,5 +67,6 @@ window.wxRefresh=()=>ids.forEach(id=>W[id]&&W[id].load&&W[id].load());
 setInterval(window.wxRefresh,5*60*1000+2000);
 const done=document.getElementById('close'),prev=done&&done.onclick;
 if(done)done.onclick=function(){if(prev)prev.apply(this,arguments);window.wxRefresh()};
-}catch(e){msg('Weather tiles error: '+e.message)}
+note('Weather tiles loaded: '+ids.length+' widgets added. Turn them on in Settings > Widgets.');
+}catch(e){note('Weather tiles error: '+e.message)}
 })();
