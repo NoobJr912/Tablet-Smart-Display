@@ -1,13 +1,14 @@
 /* Weather tiles as individual widgets: UV index, Sunrise and sunset, Wind, Feels like, Humidity, Pressure.
    Each one is switched on or off in Settings > Widgets (all start switched off) and can be reordered there.
    They also stay in the weather menu. Tapping one opens the weather menu.
-   Tiles that sit next to each other in the order are grouped two per row, each half the size of a normal widget.
+   All switched-on tiles share one full-width strip of compact tiles (placed where the first tile sits in the order) that fills each row with no gaps.
    Add <script src="wxtiles.js"></script> AFTER weather.js. Uses the shared forecast request from weather.js. */
 (()=>{try{
 if(!window.wxTiles)return;
 const style=document.createElement('style');
 style.textContent=`
-.wtgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2.4vmin;align-content:start}
+.wtgrid{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:2.4vmin}
+.wtgrid>.card{flex:1 1 170px}
 .card.wtw{cursor:pointer;min-height:0;min-width:0;padding:clamp(10px,2.4cqw,14px) clamp(12px,3cqw,16px);border-radius:24px}
 .card.wtw h2{font-size:12px;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .card.wtw .wt{background:none;box-shadow:none;border-radius:0;padding:0}
@@ -72,14 +73,14 @@ ids.forEach(id=>{
 });
 save();
 
-/* after every layout, put each run of neighbouring tile widgets into one two-column group */
+/* after every layout, collect all tile widgets into one full-width strip so they never leave gaps */
 function group(){
-  const box=document.getElementById('widgets');let run=null;
+  const box=document.getElementById('widgets');let strip=null;
   [...box.children].forEach(k=>{
     if(k.classList&&k.classList.contains('wtw')){
-      if(!run){run=document.createElement('div');run.className='wtgrid';box.insertBefore(run,k)}
-      run.appendChild(k);
-    }else run=null;
+      if(!strip){strip=document.createElement('div');strip.className='wtgrid';box.insertBefore(strip,k)}
+      strip.appendChild(k);
+    }
   });
 }
 const baseLayout=layout;
