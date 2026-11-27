@@ -1,21 +1,32 @@
 /* Weather tiles as individual widgets: UV index, Sunrise and sunset, Wind, Feels like, Humidity, Pressure.
    Each one is switched on or off in Settings > Widgets (all start switched off) and can be reordered there.
    They also stay in the weather menu. Tapping one opens the weather menu.
+   Tiles that sit next to each other in the order are grouped two per row, each half the size of a normal widget.
    Add <script src="wxtiles.js"></script> AFTER weather.js. Uses the shared forecast request from weather.js. */
-(()=>{
-/* on-screen note for 8 seconds, so it cannot be wiped by the camera status message */
-const note=t=>{const d=document.createElement('div');d.textContent=t;d.style.cssText='position:fixed;left:50%;top:12px;transform:translateX(-50%);z-index:99;background:#0a84ff;color:#fff;padding:10px 18px;border-radius:14px;font:600 15px sans-serif;max-width:90vw;text-align:center';document.body.appendChild(d);setTimeout(()=>d.remove(),8000)};
-try{
-if(!window.wxTiles){note('Weather tiles: weather.js is out of date. Use weather.js?v=4 and hard refresh.');return}
+(()=>{try{
+if(!window.wxTiles)return;
 const style=document.createElement('style');
 style.textContent=`
-.card.wtw{cursor:pointer}
+.wtgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2.4vmin;align-content:start}
+.card.wtw{cursor:pointer;min-height:0;min-width:0;padding:clamp(10px,2.4cqw,14px) clamp(12px,3cqw,16px);border-radius:24px}
+.card.wtw h2{font-size:12px;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .card.wtw .wt{background:none;box-shadow:none;border-radius:0;padding:0}
-.card.wtw .wt>b{font-size:clamp(34px,min(15cqw,9vmin),90px)}
-.card.wtw .wt em{font-size:clamp(12px,min(4.6cqw,2.4vmin),22px)}
-.card.wtw .wsun{max-height:24vmin}
-.card.wtw .wsr b{font-size:clamp(17px,min(7cqw,3vmin),30px)}
-.card.wtw .ubs{height:clamp(84px,16vmin,160px)}
+.card.wtw .wt>b{font-size:clamp(24px,17cqw,40px)}
+.card.wtw .wt em{font-size:12px;margin-top:3px}
+.card.wtw .uvh{gap:6px}
+.card.wtw .uvh b{font-size:clamp(24px,17cqw,36px)}
+.card.wtw .uvh span{font-size:12px}
+.card.wtw .ubs{height:50px;margin-top:6px;gap:2px}
+.card.wtw .ub u{border-radius:2px}
+.card.wtw .ub s{font-size:9px;height:11px;margin-top:2px}
+.card.wtw .wsun{max-height:52px}
+.card.wtw .wsr{margin-top:2px}
+.card.wtw .wsr i{font-size:11px}
+.card.wtw .wsr b{font-size:clamp(13px,9cqw,17px)}
+.card.wtw .wwd{gap:8px}
+.card.wtw .wwd svg{width:52px;height:52px}
+.card.wtw .wwd b{font-size:clamp(18px,12cqw,26px)!important}
+.card.wtw .wwd em{margin-top:1px}
 `;
 document.head.appendChild(style);
 
@@ -39,13 +50,13 @@ function make(id){
   let n=0;
   el.onclick=()=>{try{window.wxOpen&&window.wxOpen()}catch(e){}};
   el.load=()=>{
-    if(!S.lat||!S.lon){b.innerHTML='<div class="sub">Add your location in Settings.</div>';return}
+    if(!S.lat||!S.lon){b.innerHTML='<div class="sub" style="font-size:12px">Add your location in Settings.</div>';return}
     const my=++n;
     wxTiles.load(S.lat,S.lon).then(j=>{
       if(my!==n)return;
       /* the card already has the title as its heading, so drop the tile's own */
       b.innerHTML=wxTiles.html(kind,j).replace(/^<div class="wt"><span>.*?<\/span>/,'<div class="wt">');
-    }).catch(()=>{if(my===n&&!b.querySelector('.wt'))b.innerHTML='<div class="sub">Can’t reach the weather service.</div>'});
+    }).catch(()=>{if(my===n&&!b.querySelector('.wt'))b.innerHTML='<div class="sub" style="font-size:12px">Can’t reach the weather service.</div>'});
   };
   el.load();
   return el;
@@ -60,6 +71,19 @@ ids.forEach(id=>{
   if(S.on[id]===undefined)S.on[id]=0;
 });
 save();
+
+/* after every layout, put each run of neighbouring tile widgets into one two-column group */
+function group(){
+  const box=document.getElementById('widgets');let run=null;
+  [...box.children].forEach(k=>{
+    if(k.classList&&k.classList.contains('wtw')){
+      if(!run){run=document.createElement('div');run.className='wtgrid';box.insertBefore(run,k)}
+      run.appendChild(k);
+    }else run=null;
+  });
+}
+const baseLayout=layout;
+layout=function(){baseLayout.apply(this,arguments);group()};
 layout();
 
 /* refresh the tile widgets: when the forecast changes, a different place is shown on the widget, or Settings closes */
@@ -67,6 +91,5 @@ window.wxRefresh=()=>ids.forEach(id=>W[id]&&W[id].load&&W[id].load());
 setInterval(window.wxRefresh,5*60*1000+2000);
 const done=document.getElementById('close'),prev=done&&done.onclick;
 if(done)done.onclick=function(){if(prev)prev.apply(this,arguments);window.wxRefresh()};
-note('Weather tiles loaded: '+ids.length+' widgets added. Turn them on in Settings > Widgets.');
-}catch(e){note('Weather tiles error: '+e.message)}
+}catch(e){console.error(e);try{msg('Weather tiles error: '+e.message)}catch(x){}}
 })();
